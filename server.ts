@@ -1,5 +1,5 @@
 
-import express, { Request, Response } from 'express';
+import express = require('express');
 import cors from 'cors';
 import multer from 'multer';
 import dotenv from 'dotenv';
@@ -280,7 +280,7 @@ const toolConfigs: Record<string, { systemInstruction?: string }> = {
 // --- Multipart Form-Data Routes ---
 // These routes use multer and must be defined *before* the global JSON body parser.
 
-app.post('/api/generate-stream', upload.single('file'), async (req: Request, res: Response) => {
+app.post('/api/generate-stream', upload.single('file'), async (req: express.Request, res: express.Response) => {
     let { tool, prompt, history, clientMessageId } = req.body;
     const file = req.file;
     const agentName = tool as Tool;
@@ -362,7 +362,7 @@ app.post('/api/generate-stream', upload.single('file'), async (req: Request, res
 });
 
 
-app.post('/api/detect-content-safety', upload.single('file'), async (req: Request, res: Response) => {
+app.post('/api/detect-content-safety', upload.single('file'), async (req: express.Request, res: express.Response) => {
     const agentName: Tool = 'CONTENT_DETECTOR';
     const { clientMessageId } = req.body;
     const prompt = 'Detect content safety';
@@ -404,7 +404,7 @@ app.post('/api/detect-content-safety', upload.single('file'), async (req: Reques
     }
 });
 
-app.post('/api/generate-video', upload.single('image'), async (req: Request, res: Response) => {
+app.post('/api/generate-video', upload.single('image'), async (req: express.Request, res: express.Response) => {
     const agentName: Tool = 'VIDEO_GEN';
     const { prompt, sourceImageFilename: clientSourceFilename, clientMessageId } = req.body;
     const uploadedImage = req.file;
@@ -441,7 +441,7 @@ app.post('/api/generate-video', upload.single('image'), async (req: Request, res
     }
 });
 
-app.post('/api/analyze-image', upload.single('file'), async (req: Request, res: Response) => {
+app.post('/api/analyze-image', upload.single('file'), async (req: express.Request, res: express.Response) => {
     const agentName: Tool = 'IMAGE_ANALYSIS';
     const { clientMessageId } = req.body;
     const prompt = ANALYSIS_PROMPT;
@@ -482,7 +482,7 @@ app.post('/api/analyze-image', upload.single('file'), async (req: Request, res: 
 
 
 // === LOCAL IMAGE VIEWER ROUTES ===
-app.post('/api/local-images/upload', upload.array('images', 20), async (req: Request, res: Response) => {
+app.post('/api/local-images/upload', upload.array('images', 20), async (req: express.Request, res: express.Response) => {
     const agentName = 'LOCAL_VIEWER';
     const prompt = 'Upload images';
     try {
@@ -512,7 +512,7 @@ app.post('/api/local-images/upload', upload.array('images', 20), async (req: Req
     }
 });
 
-app.post('/api/local-images/:id/analyze', async (req: Request, res: Response) => {
+app.post('/api/local-images/:id/analyze', async (req: express.Request, res: express.Response) => {
     const agentName = 'LOCAL_VIEWER';
     const { id } = req.params;
     const prompt = `Analyze image ID ${id}`;
@@ -557,7 +557,7 @@ app.post('/api/local-images/:id/analyze', async (req: Request, res: Response) =>
 // --- JSON Body Routes ---
 app.use('/api', express.json({ limit: '50mb' }));
 
-app.post('/api/generate-image', async (req: Request, res: Response) => {
+app.post('/api/generate-image', async (req: express.Request, res: express.Response) => {
     const agentName: Tool = 'IMAGE_GEN';
     const { prompt, clientMessageId } = req.body;
     try {
@@ -611,7 +611,7 @@ Use this as strong inspiration for the artistic style, mood, and subject matter 
     }
 });
 
-app.post('/api/feedback', async (req: Request, res: Response) => {
+app.post('/api/feedback', async (req: express.Request, res: express.Response) => {
     const { clientMessageId, feedback } = req.body;
 
     if (!clientMessageId || !['like', 'dislike'].includes(feedback)) {
@@ -637,7 +637,7 @@ app.post('/api/feedback', async (req: Request, res: Response) => {
     }
 });
 
-app.post('/api/check-video-status', async (req: Request, res: Response) => {
+app.post('/api/check-video-status', async (req: express.Request, res: express.Response) => {
     const agentName: Tool = 'VIDEO_GEN';
     const { operation, prompt, sourceImageFilename, clientMessageId } = req.body;
     try {
@@ -678,7 +678,7 @@ app.post('/api/check-video-status', async (req: Request, res: Response) => {
     }
 });
 
-app.post('/api/synthesize-speech', async (req: Request, res: Response) => {
+app.post('/api/synthesize-speech', async (req: express.Request, res: express.Response) => {
     try {
         const { text, voiceId, ttsModelId } = req.body;
         
@@ -712,7 +712,7 @@ app.post('/api/synthesize-speech', async (req: Request, res: Response) => {
     }
 });
 
-app.post('/api/get-weather', async (req: Request, res: Response) => {
+app.post('/api/get-weather', async (req: express.Request, res: express.Response) => {
     const agentName: Tool = 'WEATHER';
     const { location, clientMessageId } = req.body;
     const prompt = `Get weather for: ${location}`;
@@ -754,7 +754,7 @@ app.post('/api/get-weather', async (req: Request, res: Response) => {
 
 // --- Other GET/DELETE Routes ---
 
-app.get('/api/gallery', async (req: Request, res: Response) => {
+app.get('/api/gallery', async (req: express.Request, res: express.Response) => {
     try {
         const { rows } = await pool.query(`
             SELECT 
@@ -776,7 +776,7 @@ app.get('/api/gallery', async (req: Request, res: Response) => {
     }
 });
 
-app.get('/api/local-images', async (req: Request, res: Response) => {
+app.get('/api/local-images', async (req: express.Request, res: express.Response) => {
     try {
         const { rows } = await pool.query('SELECT * FROM local_images ORDER BY created_at DESC');
         res.json(rows);
@@ -786,7 +786,7 @@ app.get('/api/local-images', async (req: Request, res: Response) => {
     }
 });
 
-app.delete('/api/local-images/:id', async (req: Request, res: Response) => {
+app.delete('/api/local-images/:id', async (req: express.Request, res: express.Response) => {
     const agentName = 'LOCAL_VIEWER';
     const { id } = req.params;
     const prompt = `Delete image ID ${id}`;
