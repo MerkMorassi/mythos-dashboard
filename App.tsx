@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Part } from '@google/genai';
-import { synthesizeSpeech, generateImageFromPrompt, summarizeDocument, generateVideo, checkVideoOperationStatus, fetchChatStream, analyzeImageOnBackend, processUrl, generateVideoFromLastImage, fetchGallery, detectContentSafety, analyzeAudio, generateCode, generateText, analyzeCode, getWeather } from './services/geminiService';
+import { synthesizeSpeech, generateImageFromPrompt, summarizeDocument, generateVideo, checkVideoOperationStatus, fetchGallery, detectContentSafety, analyzeAudio, generateCode, generateText, analyzeCode, getWeather, submitFeedback, fetchGenerationStream, analyzeImageOnBackend, processUrl, generateVideoFromLastImage } from './services/geminiService';
 import type { ChatMessage as Message, VoiceOption, Tool, TtsModelOption, GalleryImage } from './types';
 import { MessageRole, TTS_MODELS, STABLE_VOICES, PREVIEW_VOICES } from './types';
 import ChatMessage from './components/ChatMessage';
@@ -12,52 +12,9 @@ import GalleryLightbox from './components/GalleryLightbox';
 import GalleryPanel from './components/GalleryPanel';
 import PerchancePromptPanel from './components/PerchancePromptPanel';
 import TtsPanel from './components/TtsPanel';
-
-const ANALYSIS_PROMPT = `
-You are an expert descriptive analyst for high-quality imagery. Your task is to provide a detailed, accurate, and objective visual description of the provided image. Do not infer emotions or make subjective judgments.
-
-Your response MUST be formatted in Markdown and structured in two distinct parts: "PART 1: ANALYSIS" and "PART 2: PROMPT SUGGESTION".
-
----
-
-**PART 1: ANALYSIS**
-
-Provide a detailed analysis of the image, divided into the following numbered sections. Each section number and title must be bolded. If a section is not applicable, state "Not applicable". Double newlines MUST be used between each numbered section for readability.
-
-1.  **Main subject(s) and their primary, observable characteristics.**
-    (Provide detailed description here)
-
-2.  **Clothing or items in detail.**
-    (Provide detailed description here)
-
-3.  **Accessories.**
-    (Provide detailed description here)
-
-4.  **Pose and expression of any individuals.**
-    (Provide detailed description here)
-
-5.  **Characterize the background.**
-    (Provide detailed description here)
-
-6.  **Describe the overall lighting.**
-    (Provide detailed description here)
-
----
-
-**PART 2: PROMPT SUGGESTION**
-
-Provide a prompt suggestion for generating a similar image. This part must contain a "Positive Prompt" and a "Negative Prompt" section.
-
-Positive Prompt: 
-A comma-separated list of keywords and descriptive phrases derived directly from your analysis in PART 1.
-
-Negative Prompt: 
-The following exact keywords, comma-separated: blurry, low quality, cartoon, watermark, signature, text, distorted, disfigured, bad anatomy, ugly, tiling, poor lighting, unnatural pose, human, accessories, clothing
-
----
-
-Now, please provide the analysis and prompt suggestion for the image I will provide, strictly following the format above.
-`;
+import ChevronDoubleLeftIcon from './components/icons/ChevronDoubleLeftIcon';
+import ChevronDoubleRightIcon from './components/icons/ChevronDoubleRightIcon';
+import LocalImageViewer from './components/LocalImageViewer';
 
 const markdownToPlainText = (markdown: string): string => {
   if (!markdown) return '';
@@ -200,29 +157,50 @@ export const App: React.FC = () => {
     }
   }, [speakingMessageId, selectedVoice, selectedTtsModel]);
 
-  const handleSendMessage = async (messageText: string, file: File | null) => {
-    if (file) {
-        addMessage({ role: MessageRole.MODEL, content: "File uploads are not supported in this chat tool yet. Please use the Document or Image analysis tools.", isError: true });
-        return;
-    }
+  const handleStreamedGeneration = async (
+      tool: Tool, 
+      userPrompt: string, 
+      file: File | null = null, 
+      userMessageOverrides: Partial<Message> = {}
+  ) => {
+    const userMessageContent = file ? userPrompt || `File Upload: ${file.name}` : userPrompt;
     
-    const userMessage: Message = { id: crypto.randomUUID(), role: MessageRole.USER, content: messageText };
-    const currentHistory = messages.filter(m => m.role !== MessageRole.MODEL || !m.isError).map(m => ({
+    let finalUserMessageContent = userMessageOverrides.content || userMessageContent;
+    if (tool === 'URL_CONTEXT') {
+      const urlRegex = /(https?:\/\/[^\s]+)/;
+      const match = userPrompt.match(urlRegex);
+      const url = match ? match[0] : '';
+      const question = userPrompt.replace(url, '').trim();
+      finalUserMessageContent = `URL: ${url}\nPrompt: ${question}`;
+    }
+
+    const userMessage: Message = { 
+        id: crypto.randomUUID(), 
+        role: MessageRole.USER, 
+        content: finalUserMessageContent,
+        ...userMessageOverrides 
+    };
+    
+    // Add user message to UI
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
+    setIsLoading(true);
+
+    const currentHistory = newMessages.filter(m => (m.role !== MessageRole.MODEL || !m.isError) && m.id !== 'init').map(m => ({
         role: m.role,
         parts: [{ text: m.content }]
     }));
-
-    setMessages((prev) => [...prev, userMessage]);
-    setIsLoading(true);
-  
+    
     try {
-      const parts: Part[] = [{ text: messageText }];
-      const reader = await fetchChatStream(currentHistory, parts);
+      const responseMessageId = crypto.randomUUID();
+      const reader = await fetchGenerationStream(tool, userPrompt, file, currentHistory, responseMessageId);
       const decoder = new TextDecoder();
       let responseText = '';
-      const responseMessageId = crypto.randomUUID();
+      
+      // Add empty model message bubble
       setMessages((prev) => [...prev, { id: responseMessageId, role: MessageRole.MODEL, content: '...' }]);
   
+      // Stream the response
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -233,217 +211,137 @@ export const App: React.FC = () => {
           )
         );
       }
+      
+      // Final update in case of empty stream
+      setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === responseMessageId && msg.content === '...' ? { ...msg, content: '' } : msg
+          )
+        );
 
     } catch (error) {
-      console.error('Error sending message:', error);
-      const errorMessage = error instanceof Error ? `Error: ${error.message}` : 'An unknown error occurred.';
+      console.error(`Error during ${tool} generation:`, error);
+      const errorMessage = error instanceof Error ? `Stream Error: ${error.message}` : 'An unknown streaming error occurred.';
       addMessage({ role: MessageRole.MODEL, content: errorMessage, isError: true });
     } finally {
       setIsLoading(false);
     }
   };
 
+
   const handleGenerateImage = async (prompt: string) => {
     addMessage({ role: MessageRole.USER, content: prompt });
     setIsLoading(true);
     setLastGeneratedImageFilename(null);
+    const responseMessageId = crypto.randomUUID();
+    
     try {
-        addMessage({ role: MessageRole.MODEL, content: 'Generating image...' });
-        const { imageUrl, filename } = await generateImageFromPrompt(prompt);
+        setMessages(prev => [...prev, { id: responseMessageId, role: MessageRole.MODEL, content: 'Generating image...' }]);
+        const { imageUrl, filename, id } = await generateImageFromPrompt(prompt, responseMessageId);
         setLastGeneratedImageFilename(filename);
-        addMessage({
-            role: MessageRole.MODEL,
-            content: '',
-            imageUrl,
-        });
+        setMessages(prev => prev.map(msg => 
+            msg.id === responseMessageId 
+            ? { ...msg, content: '', imageUrl, imageId: id, feedback: null }
+            : msg
+        ));
     } catch (error) {
         console.error('Error generating image:', error);
-        addMessage({ role: MessageRole.MODEL, content: `Image generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`, isError: true });
-    } finally {
-        setIsLoading(false);
-        setMessages(prev => prev.filter(m => m.content !== 'Generating image...'));
-    }
-  };
-
-  const handleGenerateCode = async (prompt: string) => {
-    addMessage({ role: MessageRole.USER, content: prompt });
-    setIsLoading(true);
-    try {
-        const code = await generateCode(prompt);
-        addMessage({ role: MessageRole.MODEL, content: code });
-    } catch (error) {
-        console.error('Error generating code:', error);
-        addMessage({ role: MessageRole.MODEL, content: `Code generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`, isError: true });
+        const errorMessage = `Image generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        setMessages(prev => prev.map(msg => 
+            msg.id === responseMessageId 
+            ? { ...msg, content: errorMessage, isError: true }
+            : msg
+        ));
     } finally {
         setIsLoading(false);
     }
   };
   
-  const handleSummarizeDocument = async (file: File) => {
-      addMessage({ role: MessageRole.USER, content: `Summarize document:`, fileName: file.name });
-      setIsLoading(true);
-      try {
-          const summary = await summarizeDocument(file);
-          addMessage({ role: MessageRole.MODEL, content: summary });
-      } catch (error) {
-          console.error('Error summarizing document:', error);
-          addMessage({ role: MessageRole.MODEL, content: `Summarization failed: ${error instanceof Error ? error.message : 'Unknown error'}`, isError: true });
-      } finally {
-          setIsLoading(false);
-      }
-  };
-
-  const commonVideoGenerationHandler = async (promise: Promise<{ operation: any; sourceImageFilename: string | null; }>, prompt: string, imageUrl?: string) => {
-     addMessage({ role: MessageRole.USER, content: prompt, imageUrl });
-     setIsLoading(true);
+  const commonVideoGenerationHandler = async (promise: Promise<{ operation: any; sourceImageFilename: string | null; }>, prompt: string, imageUrl: string | undefined, responseMessageId: string) => {
     try {
-        addMessage({ role: MessageRole.MODEL, content: 'Video generation started... This can take a few minutes.' });
+        setMessages(prev => prev.map(msg => msg.id === responseMessageId ? {...msg, content: 'Video generation started... This can take a few minutes.'} : msg));
+        
         let { operation, sourceImageFilename } = await promise;
-        addMessage({ role: MessageRole.MODEL, content: 'Checking status...' });
+        setMessages(prev => prev.map(msg => msg.id === responseMessageId ? {...msg, content: 'Checking status...'} : msg));
 
         while (!operation.done) {
             await new Promise(resolve => setTimeout(resolve, 10000));
-            operation = await checkVideoOperationStatus(operation, prompt, sourceImageFilename);
+            operation = await checkVideoOperationStatus(operation, prompt, sourceImageFilename, responseMessageId);
         }
 
         const localUrl = operation.response?.generatedVideos?.[0]?.video?.localUrl;
         if (localUrl) {
             const videoUrl = `http://localhost:3001${localUrl}`;
-            addMessage({ role: MessageRole.MODEL, content: 'Video is ready!', videoUrl });
+             setMessages(prev => prev.map(msg => msg.id === responseMessageId ? {...msg, content: 'Video is ready!', videoUrl} : msg));
         } else {
             throw new Error('Video generation finished but no local URL was provided.');
         }
 
     } catch (error) {
         console.error('Error generating video:', error);
-        addMessage({ role: MessageRole.MODEL, content: `Video generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`, isError: true });
+        const errorMessage = `Video generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        setMessages(prev => prev.map(msg => msg.id === responseMessageId ? {...msg, content: errorMessage, isError: true} : msg));
     } finally {
         setIsLoading(false);
-        setMessages(prev => prev.filter(m => !m.content.includes('generation started') && !m.content.includes('Checking status...')));
     }
   };
   
   const handleGenerateVideo = async (prompt: string, imageFile: File | null) => {
-    await commonVideoGenerationHandler(generateVideo(prompt, imageFile || undefined), prompt, imageFile ? URL.createObjectURL(imageFile) : undefined);
+    addMessage({ role: MessageRole.USER, content: prompt, imageUrl: imageFile ? URL.createObjectURL(imageFile) : undefined });
+    setIsLoading(true);
+    const responseMessageId = crypto.randomUUID();
+    setMessages(prev => [...prev, {id: responseMessageId, role: MessageRole.MODEL, content: '...'}]);
+    await commonVideoGenerationHandler(generateVideo(prompt, imageFile || undefined, responseMessageId), prompt, imageFile ? URL.createObjectURL(imageFile) : undefined, responseMessageId);
   };
   
   const handleGenerateVideoFromLastImage = async (prompt: string) => {
     if (!lastGeneratedImageFilename) return;
-    const imageUrl = `http://localhost:3001/${lastGeneratedImageFilename}`;
-    await commonVideoGenerationHandler(generateVideoFromLastImage(prompt, lastGeneratedImageFilename), prompt, imageUrl);
-  };
-
-  const handleGenerateText = async (prompt: string, file: File | null) => {
-    if (file) {
-      addMessage({ role: MessageRole.USER, content: prompt, fileName: file.name });
-    } else {
-      addMessage({ role: MessageRole.USER, content: prompt });
-    }
+    const imageUrl = `http://localhost:3001/uploads/${lastGeneratedImageFilename}`;
+    addMessage({ role: MessageRole.USER, content: prompt, imageUrl });
     setIsLoading(true);
-    try {
-        const result = await generateText(prompt, file);
-        addMessage({ role: MessageRole.MODEL, content: result });
-    } catch (error) {
-        console.error('Error generating text:', error);
-        addMessage({ role: MessageRole.MODEL, content: `Text generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`, isError: true });
-    } finally {
-        setIsLoading(false);
-    }
-  };
-
-  const handleAnalyzeCode = async (prompt: string, file: File | null) => {
-    if (file) {
-      addMessage({ role: MessageRole.USER, content: prompt, fileName: file.name });
-    } else {
-      addMessage({ role: MessageRole.USER, content: prompt });
-    }
-    setIsLoading(true);
-    try {
-        const result = await analyzeCode(prompt, file);
-        addMessage({ role: MessageRole.MODEL, content: result });
-    } catch (error) {
-        console.error('Error analyzing code:', error);
-        addMessage({ role: MessageRole.MODEL, content: `Code analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`, isError: true });
-    } finally {
-        setIsLoading(false);
-    }
+    const responseMessageId = crypto.randomUUID();
+    setMessages(prev => [...prev, {id: responseMessageId, role: MessageRole.MODEL, content: '...'}]);
+    await commonVideoGenerationHandler(generateVideoFromLastImage(prompt, lastGeneratedImageFilename, responseMessageId), prompt, imageUrl, responseMessageId);
   };
 
   const handleDetectContentSafety = async (file: File) => {
-      addMessage({
-          role: MessageRole.USER,
-          content: `Checking content safety for document:`,
-          fileName: file.name,
-      });
+      addMessage({ role: MessageRole.USER, content: `Checking content safety for document:`, fileName: file.name });
       setIsLoading(true);
+      const responseMessageId = crypto.randomUUID();
+      setMessages(prev => [...prev, {id: responseMessageId, role: MessageRole.MODEL, content: '...'}]);
       try {
-          const result = await detectContentSafety(file);
+          const result = await detectContentSafety(file, responseMessageId);
           const resultContent = `Safety Check Result:\nCategory: ${result.category}\nReason: ${result.reason}`;
-          addMessage({ role: MessageRole.MODEL, content: resultContent });
+          setMessages(prev => prev.map(msg => msg.id === responseMessageId ? {...msg, content: resultContent} : msg));
       } catch (error) {
           console.error('Error detecting content safety:', error);
-          addMessage({ role: MessageRole.MODEL, content: `Content safety check failed: ${error instanceof Error ? error.message : 'Unknown error'}`, isError: true });
+          const errorMessage = `Content safety check failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+          setMessages(prev => prev.map(msg => msg.id === responseMessageId ? {...msg, content: errorMessage, isError: true} : msg));
       } finally {
           setIsLoading(false);
       }
   };
 
-  const handleAnalyzeAudio = async (file: File) => {
-    addMessage({ role: MessageRole.USER, content: `Analyzing audio file:`, fileName: file.name });
-    setIsLoading(true);
-    try {
-        const transcript = await analyzeAudio(file);
-        addMessage({ role: MessageRole.MODEL, content: transcript });
-    } catch (error) {
-        console.error('Error analyzing audio:', error);
-        addMessage({ role: MessageRole.MODEL, content: `Audio analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`, isError: true });
-    } finally {
-        setIsLoading(false);
-    }
-  };
-  
-  const handleProcessUrl = async (fullInput: string) => {
-    const urlRegex = /(https?:\/\/[^\s]+)/;
-    const match = fullInput.match(urlRegex);
-    
-    if (!match) {
-        addMessage({ role: MessageRole.MODEL, content: "Please provide a valid URL.", isError: true });
-        return;
-    }
-
-    const url = match[0];
-    const prompt = fullInput.replace(url, '').trim();
-
-    addMessage({ role: MessageRole.USER, content: `URL: ${url}\nPrompt: ${prompt}` });
-    setIsLoading(true);
-    try {
-        const response = await processUrl(url, prompt);
-        addMessage({ role: MessageRole.MODEL, content: response });
-    } catch (error) {
-        console.error('Error processing URL:', error);
-        addMessage({ role: MessageRole.MODEL, content: `URL processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`, isError: true });
-    } finally {
-        setIsLoading(false);
-    }
-  };
-
   const handleGetWeather = async (location: string) => {
     addMessage({ role: MessageRole.USER, content: `Get weather for: ${location}` });
     setIsLoading(true);
+    const responseMessageId = crypto.randomUUID();
+    setMessages(prev => [...prev, {id: responseMessageId, role: MessageRole.MODEL, content: '...'}]);
     try {
-      const weather = await getWeather(location);
+      const weather = await getWeather(location, responseMessageId);
       const weatherReport = `Weather for ${weather.location}:\n- Temperature: ${weather.temperature}°${weather.unit}\n- Condition: ${weather.condition}\n- Humidity: ${weather.humidity}%`;
-      addMessage({ role: MessageRole.MODEL, content: weatherReport });
+      setMessages(prev => prev.map(msg => msg.id === responseMessageId ? {...msg, content: weatherReport} : msg));
     } catch (error) {
       console.error('Error fetching weather:', error);
-      addMessage({ role: MessageRole.MODEL, content: `Failed to get weather: ${error instanceof Error ? error.message : 'Unknown error'}`, isError: true });
+      const errorMessage = `Failed to get weather: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      setMessages(prev => prev.map(msg => msg.id === responseMessageId ? {...msg, content: errorMessage, isError: true} : msg));
     } finally {
       setIsLoading(false);
     }
   };
   
   const handleFetchGallery = useCallback(async () => {
-    if (galleryImages.length > 0 && !isLoading) return;
+    // No longer gate fetching by isLoading, allow refetching.
     setIsLoading(true);
     try {
       const images = await fetchGallery();
@@ -454,16 +352,17 @@ export const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [galleryImages.length, isLoading]);
+  }, []);
 
   const handleAnalyzeImage = async (file: File) => {
     setIsLoading(true);
+    const responseMessageId = crypto.randomUUID();
     
     const reader = new FileReader();
     reader.readAsArrayBuffer(file);
     reader.onload = async () => {
         const buffer = reader.result as ArrayBuffer;
-        const hashBuffer = await crypto.subtle.digest('SHA-265', buffer);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         const imageHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
@@ -478,24 +377,54 @@ export const App: React.FC = () => {
           content: 'Analyzing the following image:',
           imageUrl: URL.createObjectURL(file),
         });
+        setMessages(prev => [...prev, {id: responseMessageId, role: MessageRole.MODEL, content: '...'}]);
     
         try {
-          const result = await analyzeImageOnBackend(file, ANALYSIS_PROMPT);
+          const result = await analyzeImageOnBackend(file, responseMessageId);
           if (!result.text) {
               rejectedImageHashes.current.set(imageHash, 1);
-              addMessage({ role: MessageRole.MODEL, content: '', rejectionLevel: 1 });
+              setMessages(prev => prev.map(msg => msg.id === responseMessageId ? {...msg, content: '', rejectionLevel: 1} : msg));
           } else {
-              addMessage({ role: MessageRole.MODEL, content: result.text });
+              setMessages(prev => prev.map(msg => msg.id === responseMessageId ? {...msg, content: result.text} : msg));
           }
         } catch (error) {
           console.error('Error analyzing image:', error);
           const errorMessage = `Analysis Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
-          addMessage({ role: MessageRole.MODEL, content: errorMessage, isError: true });
+          setMessages(prev => prev.map(msg => msg.id === responseMessageId ? {...msg, content: errorMessage, isError: true} : msg));
         } finally {
           setIsLoading(false);
         }
     };
   };
+
+  const handleFeedback = async (messageId: string, feedback: 'like' | 'dislike') => {
+      const message = messages.find(m => m.id === messageId);
+      if (!message) return;
+
+      // Optimistic UI update for chat message
+      setMessages(prev => prev.map(msg => 
+          msg.id === messageId ? { ...msg, feedback } : msg
+      ));
+      
+      // If it's an image, also update the gallery state
+      if (message.imageId) {
+          setGalleryImages(prev => prev.map(img =>
+              img.id === message.imageId ? { ...img, feedback } : img
+          ));
+      }
+
+      try {
+          await submitFeedback(messageId, feedback);
+      } catch (error) {
+          console.error("Failed to submit feedback", error);
+          addMessage({ role: MessageRole.MODEL, content: 'Failed to save your feedback.', isError: true });
+          // Revert state on error by refetching gallery if it was an image
+          if (message.imageId) {
+            handleFetchGallery();
+          }
+      }
+  };
+
 
   const handleOpenLightbox = (index: number) => {
     setLightboxIndex(index);
@@ -528,16 +457,20 @@ export const App: React.FC = () => {
   const onToolSend = (message: string, file: File | null) => {
     switch (activeTool) {
       case 'CHAT':
-        handleSendMessage(message, file);
+      case 'CODE_GEN':
+      case 'TEXT_GEN':
+      case 'CODE_ANALYSIS':
+      case 'URL_CONTEXT':
+        handleStreamedGeneration(activeTool, message, file, {});
+        break;
+      case 'DOC_SUMMARY':
+        if(file) handleStreamedGeneration(activeTool, "Summarize this document", file, {content: `Summarize document:`, fileName: file.name});
+        break;
+      case 'AUDIO_ANALYSIS':
+        if(file) handleStreamedGeneration(activeTool, "Transcribe this audio", file, {content: `Analyzing audio file:`, fileName: file.name});
         break;
       case 'IMAGE_GEN':
         handleGenerateImage(message);
-        break;
-      case 'CODE_GEN':
-        handleGenerateCode(message);
-        break;
-      case 'TEXT_GEN':
-        handleGenerateText(message, file);
         break;
       case 'VIDEO_GEN':
         handleGenerateVideo(message, file);
@@ -545,29 +478,18 @@ export const App: React.FC = () => {
       case 'IMAGE_ANALYSIS':
         if(file) handleAnalyzeImage(file);
         break;
-      case 'CODE_ANALYSIS':
-        handleAnalyzeCode(message, file);
-        break;
-      case 'DOC_SUMMARY':
-        if(file) handleSummarizeDocument(file);
-        break;
       case 'CONTENT_DETECTOR':
         if(file) handleDetectContentSafety(file);
-        break;
-      case 'AUDIO_ANALYSIS':
-        if(file) handleAnalyzeAudio(file);
-        break;
-      case 'URL_CONTEXT':
-        handleProcessUrl(message);
         break;
       case 'WEATHER':
         handleGetWeather(message);
         break;
+      case 'LOCAL_VIEWER':
       case 'RAG_DB':
         // Placeholder for future RAG functionality
         break;
       default:
-        handleSendMessage(message, file);
+        handleStreamedGeneration('CHAT', message, file, {});
     }
   };
 
@@ -631,8 +553,15 @@ export const App: React.FC = () => {
       <div className="flex flex-1 overflow-hidden">
         {/* Left Sidebar */}
         <aside className={`bg-secondary flex flex-col transition-all duration-300 ease-in-out ${isLeftSidebarCollapsed ? 'w-20' : 'w-64'}`}>
-            <div className={`p-4 h-16 border-b border-accent flex items-center`}>
-                {!isLeftSidebarCollapsed && <h1 className="text-lg font-semibold text-text-primary">Gemini MCP</h1>}
+            <div className={`p-4 h-16 border-b border-accent flex items-center justify-between`}>
+                {!isLeftSidebarCollapsed && <h1 className="text-lg font-semibold text-text-primary">MYTHOS DASHBOARD</h1>}
+                 <button 
+                    onClick={() => setIsLeftSidebarCollapsed(!isLeftSidebarCollapsed)}
+                    className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-accent transition-colors"
+                    aria-label={isLeftSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                >
+                    {isLeftSidebarCollapsed ? <ChevronDoubleRightIcon /> : <ChevronDoubleLeftIcon />}
+                </button>
             </div>
             
             <Toolbar
@@ -643,45 +572,44 @@ export const App: React.FC = () => {
                 isCollapsed={isLeftSidebarCollapsed}
                 rightPanelContent={rightPanelContent}
              />
-
-            <div className="p-2 border-t border-accent mt-auto">
-              <button 
-                  onClick={() => setIsLeftSidebarCollapsed(!isLeftSidebarCollapsed)}
-                  className="w-full text-sm text-text-secondary hover:text-text-primary hover:bg-accent p-2 rounded-lg transition-colors"
-                  aria-label={isLeftSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              >
-                  {isLeftSidebarCollapsed ? 'Show' : 'Hide'}
-              </button>
-            </div>
         </aside>
         
         {/* Main Content Pane */}
         <div className="flex flex-col flex-1 overflow-hidden">
-          <main className="flex-1 overflow-hidden p-4 md:p-6 overflow-y-auto">
-            <div className="w-full space-y-8">
-              {messages.map((message) => (
-                <ChatMessage
-                  key={message.id}
-                  message={message}
-                  onSpeak={handleSpeak}
-                  isSpeaking={speakingMessageId === message.id}
-                  onInitiateEdit={handleInitiateEdit}
-                />
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
+          <main className="flex-1 overflow-hidden">
+            {activeTool === 'LOCAL_VIEWER' ? (
+              <LocalImageViewer />
+            ) : (
+              <div className="h-full overflow-y-auto p-4 md:p-6">
+                <div className="w-full space-y-8">
+                  {messages.map((message) => (
+                    <ChatMessage
+                      key={message.id}
+                      message={message}
+                      onSpeak={handleSpeak}
+                      isSpeaking={speakingMessageId === message.id}
+                      onInitiateEdit={handleInitiateEdit}
+                      onFeedback={handleFeedback}
+                    />
+                  ))}
+                  <div ref={messagesEndRef} />
+                </div>
+              </div>
+            )}
           </main>
-          <footer className="p-4 md:p-6 border-t border-accent bg-secondary">
-            <MessageInput
-              input={input}
-              setInput={setInput}
-              onSend={onToolSend}
-              isLoading={isLoading}
-              activeTool={activeTool}
-              isImageAvailableForVideo={!!lastGeneratedImageFilename}
-              onGenerateVideoFromLastImage={handleGenerateVideoFromLastImage}
-            />
-          </footer>
+          {activeTool !== 'LOCAL_VIEWER' && (
+              <footer className="p-4 md:p-6 border-t border-accent bg-secondary">
+                <MessageInput
+                  input={input}
+                  setInput={setInput}
+                  onSend={onToolSend}
+                  isLoading={isLoading}
+                  activeTool={activeTool}
+                  isImageAvailableForVideo={!!lastGeneratedImageFilename}
+                  onGenerateVideoFromLastImage={handleGenerateVideoFromLastImage}
+                />
+              </footer>
+          )}
         </div>
 
         {/* Right Sidebar */}
@@ -727,6 +655,7 @@ export const App: React.FC = () => {
             onClose={handleCloseLightbox}
             onPrev={handlePrevImage}
             onNext={handleNextImage}
+            onFeedback={handleFeedback}
         />
       )}
     </div>

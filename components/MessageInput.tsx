@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { Tool, GalleryImage } from '../types';
 import SendIcon from './icons/SendIcon';
@@ -220,7 +221,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
         const image: GalleryImage = JSON.parse(imageDataString);
         
-        const response = await fetch(`/${image.filename}`);
+        const response = await fetch(`/uploads/${image.filename}`);
         const blob = await response.blob();
         const file = new File([blob], image.filename, { type: blob.type });
 

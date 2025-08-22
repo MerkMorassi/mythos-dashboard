@@ -5,6 +5,8 @@ import ChevronLeftIcon from './icons/ChevronLeftIcon';
 import ChevronRightIcon from './icons/ChevronRightIcon';
 import CopyIcon from './icons/CopyIcon';
 import CheckIcon from './icons/CheckIcon';
+import ThumbsUpIcon from './icons/ThumbsUpIcon';
+import ThumbsDownIcon from './icons/ThumbsDownIcon';
 
 interface GalleryLightboxProps {
   images: GalleryImage[];
@@ -12,9 +14,10 @@ interface GalleryLightboxProps {
   onClose: () => void;
   onPrev: () => void;
   onNext: () => void;
+  onFeedback: (messageId: string, feedback: 'like' | 'dislike') => void;
 }
 
-const GalleryLightbox: React.FC<GalleryLightboxProps> = ({ images, currentIndex, onClose, onPrev, onNext }) => {
+const GalleryLightbox: React.FC<GalleryLightboxProps> = ({ images, currentIndex, onClose, onPrev, onNext, onFeedback }) => {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -55,23 +58,41 @@ const GalleryLightbox: React.FC<GalleryLightboxProps> = ({ images, currentIndex,
     >
       <div className="relative max-w-4xl max-h-[90vh] p-4" onClick={(e) => e.stopPropagation()}>
         <img 
-          src={`/${currentImage.filename}`} 
+          src={`/uploads/${currentImage.filename}`} 
           alt={currentImage.prompt} 
           className="max-w-full max-h-[80vh] object-contain" 
         />
         <div className="text-left text-white mt-2 p-3 bg-black bg-opacity-60 rounded-md text-sm">
           <div className="flex justify-between items-start">
-            <div>
+            <div className="flex-grow">
               <p className="font-bold text-text-secondary">PROMPT</p>
               <p className="pr-4">{currentImage.prompt}</p>
             </div>
-            <button
-                onClick={handleCopy}
-                className="p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent transition-colors flex-shrink-0"
-                aria-label={copied ? "Copied" : "Copy prompt"}
-              >
-                {copied ? <CheckIcon /> : <CopyIcon />}
-            </button>
+            <div className="flex items-center flex-shrink-0">
+               <button
+                  onClick={handleCopy}
+                  className="p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent transition-colors"
+                  aria-label={copied ? "Copied" : "Copy prompt"}
+                >
+                  {copied ? <CheckIcon /> : <CopyIcon />}
+              </button>
+              <div className="flex items-center gap-1 border-l border-accent/50 pl-2 ml-2">
+                <button
+                    onClick={(e) => { e.stopPropagation(); onFeedback(currentImage.client_message_id, 'like'); }}
+                    className={`p-1 rounded-full hover:bg-accent transition-colors ${currentImage.feedback === 'like' ? 'text-green-400' : 'text-text-secondary'}`}
+                    aria-label="Like image"
+                >
+                    <ThumbsUpIcon />
+                </button>
+                 <button
+                    onClick={(e) => { e.stopPropagation(); onFeedback(currentImage.client_message_id, 'dislike'); }}
+                    className={`p-1 rounded-full hover:bg-accent transition-colors ${currentImage.feedback === 'dislike' ? 'text-red-400' : 'text-text-secondary'}`}
+                    aria-label="Dislike image"
+                >
+                    <ThumbsDownIcon />
+                </button>
+              </div>
+            </div>
           </div>
           <div className="mt-2 pt-2 border-t border-accent/50 grid grid-cols-2 gap-x-4">
             {currentImage.seed != null && (

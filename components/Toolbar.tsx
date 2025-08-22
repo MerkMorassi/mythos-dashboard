@@ -2,6 +2,8 @@
 
 
 
+
+
 import React from 'react';
 import type { Tool } from '../types';
 import AnalyzeIcon from './icons/AnalyzeIcon';
@@ -22,6 +24,7 @@ import ImageMixerIcon from './icons/ImageMixerIcon';
 import TtsIcon from './icons/TtsIcon';
 import SunoIcon from './icons/SunoIcon';
 import LinearIcon from './icons/LinearIcon';
+import LocalViewerIcon from './icons/LocalViewerIcon';
 
 interface ToolbarProps {
   activeTool: Tool;
@@ -92,6 +95,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
         </>)}
         {renderToolGroup('Data', <>
             <ToolButton label="Gallery" isActive={rightPanelContent === 'GALLERY'} onClick={onToggleGallery} isCollapsed={isCollapsed}><GalleryIcon /></ToolButton>
+            <ToolButton label="Local Viewer" isActive={activeTool === 'LOCAL_VIEWER'} onClick={() => onToolChange('LOCAL_VIEWER')} isCollapsed={isCollapsed}><LocalViewerIcon /></ToolButton>
             <ToolButton label="NotebookLM" isActive={activeTool === 'NOTEBOOK_LM'} onClick={() => onToolChange('NOTEBOOK_LM')} isCollapsed={isCollapsed}><NotebookIcon /></ToolButton>
             <ToolButton label="Linear" isActive={activeTool === 'LINEAR'} onClick={() => onToolChange('LINEAR')} isCollapsed={isCollapsed}><LinearIcon /></ToolButton>
             <ToolButton label="dB" isActive={activeTool === 'RAG_DB'} onClick={() => onToolChange('RAG_DB')} isCollapsed={isCollapsed}><DbIcon /></ToolButton>

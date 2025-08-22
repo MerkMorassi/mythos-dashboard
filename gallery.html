@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dekatria Photo Viewer</title>
+    <link rel="stylesheet" href="/css/gallery.css">
+</head>
+<body>
+    <header class="header">
+        <h1>Dekatria Photo Viewer</h1>
+        <div class="status">Ready</div>
+    </header>
+
+    <main class="main-container">
+        <aside class="sidebar">
+            <div class="drop-zone" id="dropZone">
+                <p>Drop images here</p>
+            </div>
+            <div class="controls">
+                <button id="scanButton">Select Images</button>
+                <input type="file" id="fileInput" multiple accept="image/*" style="display: none;">
+            </div>
+        </aside>
+
+        <section class="gallery">
+            <div class="thumbnail-grid" id="thumbnailGrid">
+                <!-- Thumbnails will be generated here -->
+            </div>
+        </section>
+    </main>
+
+    <div class="modal" id="imageModal">
+        <img id="modalImage" alt="Full size image">
+        <button class="close" id="closeModal">&times;</button>
+    </div>
+
+    <script src="/js/gallery.js"></script>
+</body>
+</html>

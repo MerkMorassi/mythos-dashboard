@@ -1,5 +1,3 @@
-
-
 export enum MessageRole {
   USER = 'user',
   MODEL = 'model',
@@ -21,6 +19,7 @@ export const TOOLS = [
     'AUDIO_ANALYSIS', 
     'WEATHER',
     'URL_CONTEXT', 
+    'LOCAL_VIEWER',
     'NOTEBOOK_LM',
     'LINEAR',
     'RAG_DB'
@@ -58,13 +57,27 @@ export interface ChatMessage {
   fileName?: string;
   isError?: boolean;
   rejectionLevel?: 0 | 1 | 2;
+  imageId?: number;
+  feedback?: 'like' | 'dislike' | null;
 }
 
 export interface GalleryImage {
+  id: number;
   filename: string;
   prompt: string;
   created_at: string;
   seed?: number;
+  client_message_id: string;
+  feedback: 'like' | 'dislike' | null;
+}
+
+export interface LocalImage {
+  id: number;
+  filename: string;
+  original_filename: string;
+  analysis_text: string | null;
+  tags: string[] | null;
+  created_at: string;
 }
 
 

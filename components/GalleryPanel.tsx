@@ -1,5 +1,6 @@
 
 
+
 import React from 'react';
 import type { GalleryImage } from '../types';
 import CloseIcon from './icons/CloseIcon';
@@ -37,7 +38,7 @@ const GalleryPanel: React.FC<GalleryPanelProps> = ({ images, isLoading, onImageC
               draggable="true"
               onDragStart={(e) => onDragStart(e, img)}
             >
-              <img src={`/${img.filename}`} alt={img.prompt} className="w-full h-full object-cover aspect-square" />
+              <img src={`/uploads/${img.filename}`} alt={img.prompt} className="w-full h-full object-cover aspect-square" />
               <div className="absolute inset-0 bg-black bg-opacity-70 opacity-0 group-hover:opacity-100 transition-opacity p-2 text-xs text-text-primary overflow-y-auto">
                 <p className="font-bold">Prompt:</p>
                 <p className="mb-2 line-clamp-3">{img.prompt}</p>

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import type { ChatMessage as Message } from '../types';
 import { MessageRole } from '../types';
@@ -10,15 +9,18 @@ import WarningIcon from './icons/WarningIcon';
 import CopyIcon from './icons/CopyIcon';
 import EditIcon from './icons/EditIcon';
 import CheckIcon from './icons/CheckIcon';
+import ThumbsUpIcon from './icons/ThumbsUpIcon';
+import ThumbsDownIcon from './icons/ThumbsDownIcon';
 
 interface ChatMessageProps {
   message: Message;
   onSpeak: (message: Message) => void;
   isSpeaking: boolean;
   onInitiateEdit: (text: string) => void;
+  onFeedback: (messageId: string, feedback: 'like' | 'dislike') => void;
 }
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSpeak, isSpeaking, onInitiateEdit }) => {
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSpeak, isSpeaking, onInitiateEdit, onFeedback }) => {
   const [copied, setCopied] = useState(false);
   const isUser = message.role === MessageRole.USER;
 
@@ -52,6 +54,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSpeak, isSpeaking,
   const iconWrapperClasses = `flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
     isUser ? 'bg-indigo-400' : 'bg-accent'
   }`;
+
+  const hasContent = message.content || message.imageUrl || message.videoUrl;
+  const isPlaceholder = message.content === '...' || message.content?.includes('Generating image');
+  const hasFeedbackButtons = !isUser && hasContent && !isPlaceholder;
 
   return (
     <div className={wrapperClasses}>
@@ -87,7 +93,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSpeak, isSpeaking,
         </div>
 
         <div className="flex items-center gap-2">
-          {!isUser && message.content && (
+          {!isUser && message.content && !isPlaceholder && (
             <>
               <button
                 onClick={() => onSpeak(message)}
@@ -104,6 +110,24 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSpeak, isSpeaking,
                 {copied ? <CheckIcon /> : <CopyIcon />}
               </button>
             </>
+          )}
+          {hasFeedbackButtons && (
+            <div className="flex items-center gap-1 border-l border-accent pl-2 ml-2">
+                <button
+                    onClick={() => onFeedback(message.id, 'like')}
+                    className={`p-1 rounded-full hover:bg-accent transition-colors ${message.feedback === 'like' ? 'text-green-400' : 'text-text-secondary'}`}
+                    aria-label="Like response"
+                >
+                    <ThumbsUpIcon />
+                </button>
+                 <button
+                    onClick={() => onFeedback(message.id, 'dislike')}
+                    className={`p-1 rounded-full hover:bg-accent transition-colors ${message.feedback === 'dislike' ? 'text-red-400' : 'text-text-secondary'}`}
+                    aria-label="Dislike response"
+                >
+                    <ThumbsDownIcon />
+                </button>
+            </div>
           )}
           {isUser && message.content && (
             <button
