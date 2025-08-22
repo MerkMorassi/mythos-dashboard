@@ -1,6 +1,7 @@
 
 
 
+
 import React from 'react';
 import type { Tool } from '../types';
 import AnalyzeIcon from './icons/AnalyzeIcon';
@@ -20,6 +21,7 @@ import NotebookIcon from './icons/NotebookIcon';
 import ImageMixerIcon from './icons/ImageMixerIcon';
 import TtsIcon from './icons/TtsIcon';
 import SunoIcon from './icons/SunoIcon';
+import LinearIcon from './icons/LinearIcon';
 
 interface ToolbarProps {
   activeTool: Tool;
@@ -85,11 +87,13 @@ const Toolbar: React.FC<ToolbarProps> = ({
             <ToolButton label="Summarize" isActive={activeTool === 'DOC_SUMMARY'} onClick={() => onToolChange('DOC_SUMMARY')} isCollapsed={isCollapsed}><FileIcon /></ToolButton>
             <ToolButton label="Safety" isActive={activeTool === 'CONTENT_DETECTOR'} onClick={() => onToolChange('CONTENT_DETECTOR')} isCollapsed={isCollapsed}><DetectorIcon /></ToolButton>
             <ToolButton label="Audio" isActive={activeTool === 'AUDIO_ANALYSIS'} onClick={() => onToolChange('AUDIO_ANALYSIS')} isCollapsed={isCollapsed}><AudioIcon /></ToolButton>
+            <ToolButton label="Weather" isActive={activeTool === 'WEATHER'} onClick={() => onToolChange('WEATHER')} isCollapsed={isCollapsed}><AnalyzeIcon /></ToolButton>
             <ToolButton label="URL" isActive={activeTool === 'URL_CONTEXT'} onClick={() => onToolChange('URL_CONTEXT')} isCollapsed={isCollapsed}><UrlIcon /></ToolButton>
         </>)}
         {renderToolGroup('Data', <>
             <ToolButton label="Gallery" isActive={rightPanelContent === 'GALLERY'} onClick={onToggleGallery} isCollapsed={isCollapsed}><GalleryIcon /></ToolButton>
             <ToolButton label="NotebookLM" isActive={activeTool === 'NOTEBOOK_LM'} onClick={() => onToolChange('NOTEBOOK_LM')} isCollapsed={isCollapsed}><NotebookIcon /></ToolButton>
+            <ToolButton label="Linear" isActive={activeTool === 'LINEAR'} onClick={() => onToolChange('LINEAR')} isCollapsed={isCollapsed}><LinearIcon /></ToolButton>
             <ToolButton label="dB" isActive={activeTool === 'RAG_DB'} onClick={() => onToolChange('RAG_DB')} isCollapsed={isCollapsed}><DbIcon /></ToolButton>
         </>)}
       </div>

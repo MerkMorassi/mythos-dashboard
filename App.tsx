@@ -1,11 +1,7 @@
 
-
-
-
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Part } from '@google/genai';
-import { synthesizeSpeech, generateImageFromPrompt, summarizeDocument, generateVideo, checkVideoOperationStatus, fetchChatStream, analyzeImageOnBackend, processUrl, generateVideoFromLastImage, fetchGallery, detectContentSafety, analyzeAudio, generateCode, generateText, analyzeCode } from './services/geminiService';
+import { synthesizeSpeech, generateImageFromPrompt, summarizeDocument, generateVideo, checkVideoOperationStatus, fetchChatStream, analyzeImageOnBackend, processUrl, generateVideoFromLastImage, fetchGallery, detectContentSafety, analyzeAudio, generateCode, generateText, analyzeCode, getWeather } from './services/geminiService';
 import type { ChatMessage as Message, VoiceOption, Tool, TtsModelOption, GalleryImage } from './types';
 import { MessageRole, TTS_MODELS, STABLE_VOICES, PREVIEW_VOICES } from './types';
 import ChatMessage from './components/ChatMessage';
@@ -430,6 +426,21 @@ export const App: React.FC = () => {
         setIsLoading(false);
     }
   };
+
+  const handleGetWeather = async (location: string) => {
+    addMessage({ role: MessageRole.USER, content: `Get weather for: ${location}` });
+    setIsLoading(true);
+    try {
+      const weather = await getWeather(location);
+      const weatherReport = `Weather for ${weather.location}:\n- Temperature: ${weather.temperature}°${weather.unit}\n- Condition: ${weather.condition}\n- Humidity: ${weather.humidity}%`;
+      addMessage({ role: MessageRole.MODEL, content: weatherReport });
+    } catch (error) {
+      console.error('Error fetching weather:', error);
+      addMessage({ role: MessageRole.MODEL, content: `Failed to get weather: ${error instanceof Error ? error.message : 'Unknown error'}`, isError: true });
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   const handleFetchGallery = useCallback(async () => {
     if (galleryImages.length > 0 && !isLoading) return;
@@ -549,6 +560,9 @@ export const App: React.FC = () => {
       case 'URL_CONTEXT':
         handleProcessUrl(message);
         break;
+      case 'WEATHER':
+        handleGetWeather(message);
+        break;
       case 'RAG_DB':
         // Placeholder for future RAG functionality
         break;
@@ -564,6 +578,8 @@ export const App: React.FC = () => {
         setRightPanelContent(rightPanelContent === 'PERCHANCE' ? null : 'PERCHANCE');
     } else if (tool === 'SUNO_MUSIC') {
         window.open('https://suno.com/create', '_blank', 'noopener,noreferrer');
+    } else if (tool === 'LINEAR') {
+        window.open('https://linear.app/mythos-lia/project/mythos-dashboard-3a768abea8fa/overview', '_blank', 'noopener,noreferrer');
     } else {
         setActiveTool(tool);
     }
@@ -702,6 +718,7 @@ export const App: React.FC = () => {
             </aside>
         )}
       
+      </div>
       {/* Lightbox Modal */}
       {lightboxIndex !== null && (
         <GalleryLightbox 

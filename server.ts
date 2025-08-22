@@ -1,5 +1,8 @@
 
+
+
 import express from 'express';
+import type { Request, Response } from 'express';
 import cors from 'cors';
 import multer from 'multer';
 import dotenv from 'dotenv';
@@ -13,7 +16,7 @@ import type { Tool } from './types';
 
 dotenv.config();
 
-const app: express.Application = express();
+const app = express();
 const port = process.env.PORT || 3001;
 const UPLOADS_DIR = path.resolve('uploads');
 
@@ -173,7 +176,7 @@ const handleFileUpload = async (file: Express.Multer.File | undefined) => {
 // --- Multipart Form-Data Routes ---
 // These routes use multer and must be defined *before* the global JSON body parser.
 
-app.post('/api/summarize-document', upload.single('file'), async (req: express.Request, res: express.Response) => {
+app.post('/api/summarize-document', upload.single('file'), async (req: Request, res: Response) => {
     const agentName: Tool = 'DOC_SUMMARY';
     const prompt = 'Summarize document';
     let filename: string | null = null;
@@ -200,7 +203,7 @@ app.post('/api/summarize-document', upload.single('file'), async (req: express.R
     }
 });
 
-app.post('/api/detect-content-safety', upload.single('file'), async (req: express.Request, res: express.Response) => {
+app.post('/api/detect-content-safety', upload.single('file'), async (req: Request, res: Response) => {
     const agentName: Tool = 'CONTENT_DETECTOR';
     const prompt = 'Detect content safety';
     let filename: string | null = null;
@@ -241,7 +244,7 @@ app.post('/api/detect-content-safety', upload.single('file'), async (req: expres
     }
 });
 
-app.post('/api/generate-text', upload.single('file'), async (req: express.Request, res: express.Response) => {
+app.post('/api/generate-text', upload.single('file'), async (req: Request, res: Response) => {
     const agentName: Tool = 'TEXT_GEN';
     const { prompt } = req.body;
     const file = req.file;
@@ -274,7 +277,7 @@ app.post('/api/generate-text', upload.single('file'), async (req: express.Reques
     }
 });
 
-app.post('/api/analyze-code', upload.single('file'), async (req: express.Request, res: express.Response) => {
+app.post('/api/analyze-code', upload.single('file'), async (req: Request, res: Response) => {
     const agentName: Tool = 'CODE_ANALYSIS';
     const { prompt } = req.body;
     const file = req.file;
@@ -313,7 +316,7 @@ app.post('/api/analyze-code', upload.single('file'), async (req: express.Request
 });
 
 
-app.post('/api/generate-video', upload.single('image'), async (req: express.Request, res: express.Response) => {
+app.post('/api/generate-video', upload.single('image'), async (req: Request, res: Response) => {
     const agentName: Tool = 'VIDEO_GEN';
     const { prompt, sourceImageFilename: clientSourceFilename } = req.body;
     const uploadedImage = req.file;
@@ -350,7 +353,7 @@ app.post('/api/generate-video', upload.single('image'), async (req: express.Requ
     }
 });
 
-app.post('/api/analyze-image', upload.single('file'), async (req: express.Request, res: express.Response) => {
+app.post('/api/analyze-image', upload.single('file'), async (req: Request, res: Response) => {
     const agentName: Tool = 'IMAGE_ANALYSIS';
     const { prompt } = req.body;
     let filename: string | null = null;
@@ -388,7 +391,7 @@ app.post('/api/analyze-image', upload.single('file'), async (req: express.Reques
     }
 });
 
-app.post('/api/analyze-audio', upload.single('file'), async (req: express.Request, res: express.Response) => {
+app.post('/api/analyze-audio', upload.single('file'), async (req: Request, res: Response) => {
     const agentName: Tool = 'AUDIO_ANALYSIS';
     const prompt = 'Transcribe Audio';
     let filename: string | null = null;
@@ -428,7 +431,7 @@ app.post('/api/analyze-audio', upload.single('file'), async (req: express.Reques
 // --- JSON Body Routes ---
 app.use('/api', express.json({ limit: '50mb' }));
 
-app.post('/api/chat-stream', async (req: express.Request, res: express.Response) => {
+app.post('/api/chat-stream', async (req: Request, res: Response) => {
   const agentName: Tool = 'CHAT';
   let prompt = '';
   try {
@@ -469,7 +472,7 @@ app.post('/api/chat-stream', async (req: express.Request, res: express.Response)
   }
 });
 
-app.post('/api/generate-image', async (req: express.Request, res: express.Response) => {
+app.post('/api/generate-image', async (req: Request, res: Response) => {
     const agentName: Tool = 'IMAGE_GEN';
     const { prompt } = req.body;
     try {
@@ -499,7 +502,7 @@ app.post('/api/generate-image', async (req: express.Request, res: express.Respon
     }
 });
 
-app.post('/api/generate-code', async (req: express.Request, res: express.Response) => {
+app.post('/api/generate-code', async (req: Request, res: Response) => {
     const agentName: Tool = 'CODE_GEN';
     const { prompt } = req.body;
     try {
@@ -522,7 +525,7 @@ app.post('/api/generate-code', async (req: express.Request, res: express.Respons
     }
 });
 
-app.post('/api/check-video-status', async (req: express.Request, res: express.Response) => {
+app.post('/api/check-video-status', async (req: Request, res: Response) => {
     const agentName: Tool = 'VIDEO_GEN';
     const { operation, prompt, sourceImageFilename } = req.body;
     try {
@@ -563,7 +566,7 @@ app.post('/api/check-video-status', async (req: express.Request, res: express.Re
     }
 });
 
-app.post('/api/process-url', async (req: express.Request, res: express.Response) => {
+app.post('/api/process-url', async (req: Request, res: Response) => {
     const agentName: Tool = 'URL_CONTEXT';
     const { url, prompt } = req.body;
     const fullPrompt = `Based on the content of the URL: ${url}, please answer the following question: ${prompt}`;
@@ -583,7 +586,7 @@ app.post('/api/process-url', async (req: express.Request, res: express.Response)
     }
 });
 
-app.post('/api/synthesize-speech', async (req: express.Request, res: express.Response) => {
+app.post('/api/synthesize-speech', async (req: Request, res: Response) => {
     try {
         const { text, voiceId, ttsModelId } = req.body;
         
@@ -617,10 +620,49 @@ app.post('/api/synthesize-speech', async (req: express.Request, res: express.Res
     }
 });
 
+app.post('/api/get-weather', async (req: Request, res: Response) => {
+    const agentName: Tool = 'WEATHER';
+    const { location } = req.body;
+    const prompt = `Get weather for: ${location}`;
+    try {
+        if (!location) {
+            return res.status(400).json({ error: 'Location is required.' });
+        }
+
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `What is the current weather in ${location}?`,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        location: { type: Type.STRING, description: 'The city and state, e.g., "San Francisco, CA"' },
+                        temperature: { type: Type.NUMBER, description: 'The current temperature.' },
+                        unit: { type: Type.STRING, description: 'The unit of temperature, either "C" for Celsius or "F" for Fahrenheit.' },
+                        condition: { type: Type.STRING, description: 'A brief description of the weather conditions, e.g., "Sunny", "Cloudy", "Rain".' },
+                        humidity: { type: Type.NUMBER, description: 'The humidity percentage, e.g., 65.' },
+                    },
+                    required: ["location", "temperature", "unit", "condition", "humidity"],
+                }
+            }
+        });
+
+        const weatherData = JSON.parse(result.text);
+        res.json(weatherData);
+        await logAgentActivity(agentName, prompt, 'SUCCESS', { model_response: result.text });
+    } catch (error) {
+        console.error('Weather fetch error:', error);
+        res.status(500).json({ error: 'Failed to get weather data.' });
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        await logAgentActivity(agentName, prompt, 'ERROR', { error_message: errorMessage });
+    }
+});
+
 
 // --- Other GET Routes ---
 
-app.get('/api/gallery', async (req: express.Request, res: express.Response) => {
+app.get('/api/gallery', async (req: Request, res: Response) => {
     try {
         const { rows } = await pool.query('SELECT filename, prompt, created_at, seed FROM images ORDER BY created_at DESC');
         res.json(rows);

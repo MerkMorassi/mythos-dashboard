@@ -1,3 +1,4 @@
+
 import type { Part } from '@google/genai';
 import type { GalleryImage } from '../types';
 
@@ -192,4 +193,21 @@ export async function analyzeAudio(file: File): Promise<string> {
     if (!response.ok) throw new Error('Failed to analyze audio');
     const data = await response.json();
     return data.transcript;
+}
+
+export interface WeatherResult {
+  location: string;
+  temperature: number;
+  unit: 'C' | 'F';
+  condition: string;
+  humidity: number;
+}
+export async function getWeather(location: string): Promise<WeatherResult> {
+    const response = await fetch(`${API_BASE_URL}/get-weather`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location }),
+    });
+    if (!response.ok) throw new Error('Failed to get weather');
+    return response.json();
 }

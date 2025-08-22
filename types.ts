@@ -19,8 +19,10 @@ export const TOOLS = [
     'DOC_SUMMARY', 
     'CONTENT_DETECTOR', 
     'AUDIO_ANALYSIS', 
+    'WEATHER',
     'URL_CONTEXT', 
     'NOTEBOOK_LM',
+    'LINEAR',
     'RAG_DB'
 ] as const;
 export type Tool = typeof TOOLS[number];
