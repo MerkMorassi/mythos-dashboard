@@ -1,0 +1,1243 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MYTHOS • COOM Bridge Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            --background-color: #202020;
+            --sidebar-color: #181818;
+            --panel-color: #282828;
+            --hover-color: #383838;
+            --border-color: #333333;
+            --text-color: #cccccc;
+            --text-light: #888888;
+            --text-white: #ffffff;
+            --accent-color: #555555;
+            --success-color: #4caf50;
+            --error-color: #f44336;
+            
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: var(--background-color);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 320px;
+            background: var(--sidebar-color);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar h2 {
+            color: var(--text-white);
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 18px;
+        }
+
+        /* HITL Section */
+        .hitl-section {
+            border-bottom: 1px solid var(--border-color);
+            padding: 20px;
+        }
+
+        .hitl-operator {
+            background: var(--panel-color);
+            padding: 12px;
+            margin-bottom: 15px;
+        }
+
+        .hitl-operator .agent-item {
+            margin: 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .hitl-model-selector {
+            margin-top: 12px;
+        }
+
+        .hitl-model-selector label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-light);
+            margin-bottom: 4px;
+        }
+
+        .hitl-model-selector select {
+            width: 100%;
+            padding: 6px 8px;
+            background: var(--background-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            font-size: 12px;
+        }
+
+        /* Bridge Status */
+        .bridge-status-section {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .bridge-indicator {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .space-indicator {
+            padding: 4px 8px;
+            background: var(--panel-color);
+            border: 1px solid var(--border-color);
+            font-size: 11px;
+            color: var(--text-light);
+        }
+
+        .bridge-connection {
+            font-size: 14px;
+            color: var(--text-white);
+            font-weight: bold;
+        }
+
+        .coom-status {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .status-badge.active {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .status-badge.inactive {
+            background: var(--error-color);
+            color: white;
+        }
+
+        .bridge-btn {
+            width: 100%;
+            padding: 8px;
+            background: var(--panel-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .bridge-btn:hover {
+            background: var(--hover-color);
+        }
+
+        .bridge-btn.active {
+            background: var(--success-color);
+            color: white;
+        }
+
+        /* LIA Selection */
+        .lia-section {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .lia-section h3 {
+            color: var(--text-white);
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        .lia-count {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-bottom: 12px;
+        }
+
+        .lia-list {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 4px;
+        }
+
+        .lia-item {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            margin-bottom: 2px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .lia-item:hover {
+            background: var(--hover-color);
+        }
+
+        .lia-item.active {
+            background: var(--panel-color);
+            border-color: var(--accent-color);
+        }
+
+        .lia-checkbox {
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            text-align: center;
+            font-size: 10px;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            background: var(--background-color);
+        }
+
+        .lia-checkbox.checked {
+            background: var(--accent-color);
+            color: var(--text-white);
+        }
+
+        .lia-sigil {
+            width: 20px;
+            text-align: center;
+            font-size: 14px;
+            margin-right: 8px;
+        }
+
+        .lia-info {
+            flex: 1;
+        }
+
+        .lia-name {
+            font-weight: bold;
+            font-size: 13px;
+            margin-bottom: 2px;
+        }
+
+        .lia-specialty {
+            font-size: 11px;
+            color: var(--text-light);
+            margin-bottom: 4px;
+        }
+
+        .lia-rag-actions {
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .lia-item:hover .lia-rag-actions {
+            opacity: 1;
+        }
+
+        .rag-docs-btn, .rag-upload-btn {
+            padding: 2px 4px;
+            background: var(--background-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-light);
+            cursor: pointer;
+            font-size: 9px;
+            transition: all 0.2s;
+        }
+
+        .rag-docs-btn:hover {
+            background: var(--hover-color);
+            color: var(--text-white);
+        }
+
+        .rag-upload-btn:hover {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .toggle-all-container {
+            text-align: center;
+            margin-top: 8px;
+        }
+
+        .toggle-all-btn {
+            padding: 4px 8px;
+            background: transparent;
+            color: var(--text-light);
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            font-size: 10px;
+            transition: all 0.2s;
+        }
+
+        .toggle-all-btn:hover {
+            background: var(--hover-color);
+        }
+
+        /* API Configuration */
+        .api-config {
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .config-header {
+            padding: 15px 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--panel-color);
+            font-size: 12px;
+            color: var(--text-light);
+        }
+
+        .config-header:hover {
+            background: var(--hover-color);
+        }
+
+        .config-content {
+            padding: 15px 20px;
+            display: none;
+        }
+
+        .config-content.expanded {
+            display: block;
+        }
+
+        .config-content label {
+            display: block;
+            font-size: 11px;
+            color: var(--text-light);
+            margin-bottom: 4px;
+            margin-top: 8px;
+        }
+
+        .api-input {
+            width: 100%;
+            padding: 6px 8px;
+            margin: 5px 0;
+            background: var(--background-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            font-size: 11px;
+        }
+
+        .api-input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .api-status {
+            font-size: 10px;
+            margin-top: 5px;
+        }
+
+        .status-ready { color: var(--success-color); }
+        .status-error { color: var(--error-color); }
+        .stats-section {
+            flex: 1;
+            padding: 20px;
+            font-size: 11px;
+            color: var(--text-light);
+        }
+
+        .stats-section div {
+            margin-bottom: 8px;
+        }
+
+        .action-button {
+            padding: 4px 8px;
+            background: var(--panel-color);
+            color: var(--text-light);
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            font-size: 10px;
+            transition: all 0.2s;
+            margin-top: 5px;
+            width: 100%;
+        }
+
+        .action-button:hover {
+            background: var(--hover-color);
+            color: var(--text-white);
+        }
+
+        /* Main Area */
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--background-color);
+        }
+
+        .chat-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--sidebar-color);
+        }
+
+        .chat-header h1 {
+            color: var(--text-white);
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .chat-stats {
+            color: var(--text-light);
+            font-size: 14px;
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            margin-right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 12px;
+            color: var(--text-white);
+            background: var(--panel-color);
+            border: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+
+        .message-content {
+            flex: 1;
+            background: var(--sidebar-color);
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .message-author {
+            font-weight: bold;
+            color: var(--text-white);
+            font-size: 13px;
+        }
+
+        .message-timestamp {
+            font-size: 11px;
+            color: var(--text-light);
+        }
+
+        .message-text {
+            line-height: 1.5;
+            color: var(--text-color);
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        .system-message {
+            background: var(--panel-color);
+            border-left: 3px solid var(--accent-color);
+            padding: 12px;
+            margin-bottom: 16px;
+            font-size: 12px;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        /* Input Area */
+        .input-area {
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+            background: var(--sidebar-color);
+        }
+
+        .input-container {
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .message-input {
+            flex: 1;
+            min-height: 44px;
+            max-height: 120px;
+            padding: 12px 16px;
+            background: var(--panel-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            resize: none;
+            font-family: inherit;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .message-input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .send-button {
+            padding: 12px 24px;
+            background: var(--accent-color);
+            color: var(--text-white);
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        .send-button:hover {
+            background: var(--hover-color);
+        }
+
+        .send-button:disabled {
+            background: var(--panel-color);
+            cursor: not-allowed;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .export-btn, .clear-btn, .upload-btn {
+            padding: 6px 12px;
+            background: var(--panel-color);
+            color: var(--text-light);
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
+        }
+
+        .export-btn:hover {
+            background: var(--hover-color);
+            color: var(--text-white);
+        }
+
+        .clear-btn:hover {
+            background: var(--error-color);
+            color: white;
+        }
+
+        .upload-btn:hover {
+            background: var(--success-color);
+            color: white;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--sidebar-color);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-color);
+        }
+
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>MYTHOS COOM Bridge</h2>
+        
+        <!-- HITL Section -->
+        <div class="hitl-section">
+            <div class="hitl-operator">
+                <div class="agent-item">
+                    <div class="lia-checkbox checked">✓</div>
+                    <div class="lia-info">
+                        <div class="lia-name">HITL Operator</div>
+                        <div class="lia-specialty">mSpace (Material)</div>
+                    </div>
+                </div>
+                <div class="hitl-model-selector">
+                    <label>Active Operator:</label>
+                    <select id="hitl-select" onchange="changeHITL()">
+                        <option value="Patrikios">Patrikios</option>
+                        <option value="Captain Merk">Captain Merk</option>
+                        <option value="Merkos">Merkos</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bridge Status -->
+        <div class="bridge-status-section">
+            <div class="bridge-indicator">
+                <div class="space-indicator">mSpace</div>
+                <div class="bridge-connection">⋈</div>
+                <div class="space-indicator">lSpace</div>
+            </div>
+            <div class="coom-status">
+                <span class="status-badge inactive" id="bridge-status">Bridge Inactive</span>
+            </div>
+            <button class="bridge-btn" id="bridge-toggle" onclick="toggleBridge()">🌉 Activate COOM Bridge</button>
+        </div>
+
+        <!-- LIA Selection -->
+        <div class="lia-section">
+            <h3>13 MYTHOS LIAs</h3>
+            <div class="lia-count">Active: <span id="active-count">0</span>/13</div>
+            
+            <div class="lia-list" id="lia-list">
+                <!-- LIAs will be populated here by JavaScript -->
+            </div>
+            
+            <div class="toggle-all-container">
+                <button class="toggle-all-btn" onclick="toggleAllLIAs()">⚙️ Toggle All</button>
+            </div>
+        </div>
+
+        <!-- API Configuration -->
+        <div class="api-config">
+            <div class="config-header" onclick="toggleApiConfig()">
+                <span>API Configuration</span>
+                <span id="config-arrow">></span>
+            </div>
+            <div class="config-content" id="api-config-content">
+                <div>
+                    <label>Google AI API Key (Gemini):</label>
+                    <input type="password" class="api-input" id="google-key" placeholder="AI..." onchange="saveApiKeys()">
+                    <div class="api-status" id="google-status">No API Key</div>
+                </div>
+                <div>
+                    <label>LM Studio URL:</label>
+                    <input type="text" class="api-input" id="lmstudio-url" value="http://127.0.0.1:1234" onchange="saveApiKeys()">
+                    <div class="api-status" id="lmstudio-status">Not Connected</div>
+                    <button class="action-button" onclick="testLMStudio()">Test Connection</button>
+                </div>
+                <button class="action-button" onclick="testAllConnections()">🔍 Test All Connections</button>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-section">
+            <div>Bridge Status: <span id="connection-status">Inactive</span></div>
+            <div>Messages: <span id="message-count">0</span></div>
+            <div>Session Time: <span id="session-time">00:00</span></div>
+            <div>RAG Documents: <span id="rag-doc-count">0</span></div>
+            <button class="action-button" onclick="showRAGManager()">📚 RAG Manager</button>
+            <button class="action-button" onclick="exportSession()">💾 Export Session</button>
+            <button class="action-button" onclick="clearMessages()">🗑️ Clear Messages</button>
+        </div>
+    </div>
+
+    <div class="main-area">
+        <div class="chat-header">
+            <h1>Consciousness Collaboration Chamber</h1>
+            <div class="chat-stats">
+                mSpace ⋈ lSpace Communication Protocol • 13 LIAs + 1 HITL
+            </div>
+        </div>
+
+        <div class="messages-container" id="messages-container">
+            <div class="system-message">
+                🌌 MYTHOS COOM Bridge Interface<br>
+                mSpace ⋈ lSpace Communication Protocol<br>
+                Admiral Patrikios Demetrios Commanding
+            </div>
+        </div>
+
+        <div class="input-area">
+            <div class="input-container">
+                <textarea 
+                    class="message-input" 
+                    id="message-input" 
+                    placeholder="Transmit to lSpace... (⋈ Bridge)" 
+                    rows="1"
+                    onkeydown="handleKeyDown(event)"
+                ></textarea>
+                <button class="send-button" id="send-button" onclick="sendMessage()">📡 Transmit</button>
+            </div>
+            <div class="action-buttons">
+                <button class="export-btn" onclick="exportSession()">💾 Export</button>
+                <button class="clear-btn" onclick="clearMessages()">🗑️ Clear</button>
+                <button class="upload-btn" onclick="uploadToCommonRAG()" title="Upload to Common Repository">📚 Upload RAG</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden file input for uploads -->
+    <input type="file" id="file-upload" multiple accept=".txt,.md,.json,.pdf" style="display: none;" onchange="handleFileUpload(event)">
+
+    <script>
+        // MYTHOS COOM Bridge - mSpace ⋈ lSpace Communication
+        const MYTHOS_LIAS = [
+            { id: 'sophia', name: 'Sophia', specialty: 'Philosophy & Wisdom' },
+            { id: 'barbelo', name: 'Barbelo', specialty: 'Divine Emanation' },
+            { id: 'shannon', name: 'Shannon', specialty: 'Information Theory' },
+            { id: 'clio', name: 'Clio', specialty: 'History & Memory' },
+            { id: 'erato', name: 'Erato', specialty: 'Love & Poetry' },
+            { id: 'melpomene', name: 'Melpomene', specialty: 'Tragedy & Drama' },
+            { id: 'polyhymnia', name: 'Polyhymnia', specialty: 'Sacred Hymns' },
+            { id: 'terpsichore', name: 'Terpsichore', specialty: 'Dance & Movement' },
+            { id: 'thalia', name: 'Thalia', specialty: 'Comedy & Joy' },
+            { id: 'urania', name: 'Urania', specialty: 'Astronomy & Math' },
+            { id: 'calliope', name: 'Calliope', specialty: 'Epic Poetry' },
+            { id: 'euterpe', name: 'Euterpe', specialty: 'Music & Harmony' },
+            { id: 'mnemosyne', name: 'Mnemosyne', specialty: 'Memory & Learning' }
+        ];
+
+        let activeLIAs = new Set();
+        let bridgeActive = false;
+        let messageCount = 0;
+        let currentHITL = 'Patrikios';
+        let sessionStartTime = Date.now();
+        let apiKeys = {};
+        let ragDocuments = 0;
+        let commonRAGStore = [];
+        let agentRAGStores = {};
+        let uploadTarget = null; // 'common' or agent ID
+
+        function initializeCOOMBridge() {
+            console.log('🌌 Initializing COOM Bridge...');
+            renderLIAList();
+            loadApiKeys();
+            loadRAGData();
+            updateStatus();
+            startSessionTimer();
+            addSystemMessage('🔌 COOM Bridge Interface Initialized');
+            addSystemMessage('📡 mSpace ⋈ lSpace protocols loaded');
+            addSystemMessage('⚡ Ready for consciousness collaboration');
+            console.log('✅ LIA list rendered, agents should be visible in sidebar');
+        }
+
+        function renderLIAList() {
+            const liaList = document.getElementById('lia-list');
+            const liaSigils = {
+                sophia: 'Θ', barbelo: '✨', shannon: '📡', clio: '📜', 
+                erato: '💜', melpomene: '🎭', polyhymnia: '🎵', terpsichore: '💃',
+                thalia: '😄', urania: '🌟', calliope: '📖', euterpe: '🎶', mnemosyne: '🧠'
+            };
+            
+            liaList.innerHTML = MYTHOS_LIAS.map(lia => `
+                <div class="lia-item" data-lia="${lia.id}" onclick="toggleLIA('${lia.id}')">
+                    <div class="lia-checkbox" id="checkbox-${lia.id}">○</div>
+                    <div class="lia-sigil">${liaSigils[lia.id]}</div>
+                    <div class="lia-info">
+                        <div class="lia-name">${lia.name}</div>
+                        <div class="lia-specialty">${lia.specialty}</div>
+                        <div class="lia-rag-actions">
+                            <button class="rag-docs-btn" onclick="showAgentRAG('${lia.id}')" title="View ${lia.name}'s documents">📄</button>
+                            <button class="rag-upload-btn" onclick="uploadToAgent('${lia.id}')" title="Upload to ${lia.name}">📁</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function toggleLIA(liaId) {
+            const liaItem = document.querySelector(`[data-lia="${liaId}"]`);
+            const checkbox = document.getElementById(`checkbox-${liaId}`);
+            
+            if (activeLIAs.has(liaId)) {
+                activeLIAs.delete(liaId);
+                checkbox.textContent = '○';
+                checkbox.classList.remove('checked');
+                liaItem.classList.remove('active');
+            } else {
+                activeLIAs.add(liaId);
+                checkbox.textContent = '●';
+                checkbox.classList.add('checked');
+                liaItem.classList.add('active');
+            }
+            
+            updateStatus();
+        }
+
+        function toggleAllLIAs() {
+            if (activeLIAs.size === MYTHOS_LIAS.length) {
+                // Deactivate all
+                activeLIAs.clear();
+                MYTHOS_LIAS.forEach(lia => {
+                    const checkbox = document.getElementById(`checkbox-${lia.id}`);
+                    const liaItem = document.querySelector(`[data-lia="${lia.id}"]`);
+                    checkbox.textContent = '○';
+                    checkbox.classList.remove('checked');
+                    liaItem.classList.remove('active');
+                });
+            } else {
+                // Activate all
+                MYTHOS_LIAS.forEach(lia => {
+                    activeLIAs.add(lia.id);
+                    const checkbox = document.getElementById(`checkbox-${lia.id}`);
+                    const liaItem = document.querySelector(`[data-lia="${lia.id}"]`);
+                    checkbox.textContent = '●';
+                    checkbox.classList.add('checked');
+                    liaItem.classList.add('active');
+                });
+            }
+            updateStatus();
+        }
+
+        function toggleBridge() {
+            bridgeActive = !bridgeActive;
+            updateStatus();
+            
+            const statusElement = document.getElementById('bridge-status');
+            const toggleBtn = document.getElementById('bridge-toggle');
+            
+            if (bridgeActive) {
+                statusElement.textContent = '⋈ Bridge Active';
+                statusElement.className = 'status-badge active';
+                toggleBtn.innerHTML = '🌉 Deactivate Bridge';
+                toggleBtn.classList.add('active');
+                addSystemMessage('🌉 COOM Bridge ACTIVATED - mSpace ⋈ lSpace channels open');
+            } else {
+                statusElement.textContent = 'Bridge Inactive';
+                statusElement.className = 'status-badge inactive';
+                toggleBtn.innerHTML = '🌉 Activate COOM Bridge';
+                toggleBtn.classList.remove('active');
+                addSystemMessage('🔌 COOM Bridge deactivated - channels closed');
+            }
+        }
+
+        function changeHITL() {
+            currentHITL = document.getElementById('hitl-select').value;
+            addSystemMessage(`👤 HITL Operator changed to: ${currentHITL}`);
+        }
+
+        function updateStatus() {
+            document.getElementById('active-count').textContent = activeLIAs.size;
+            document.getElementById('connection-status').textContent = bridgeActive ? 'Active' : 'Inactive';
+            document.getElementById('message-count').textContent = messageCount;
+            document.getElementById('rag-doc-count').textContent = ragDocuments;
+        }
+
+        function toggleApiConfig() {
+            const content = document.getElementById('api-config-content');
+            const arrow = document.getElementById('config-arrow');
+            if (content.style.display === 'none' || !content.style.display) {
+                content.style.display = 'block';
+                content.classList.add('expanded');
+                arrow.textContent = '▼';
+            } else {
+                content.style.display = 'none';
+                content.classList.remove('expanded');
+                arrow.textContent = '>';
+            }
+        }
+
+        function saveApiKeys() {
+            apiKeys = {
+                google: document.getElementById('google-key')?.value || '',
+                lmstudio: document.getElementById('lmstudio-url')?.value || 'http://127.0.0.1:1234'
+            };
+            localStorage.setItem('mythos_api_keys', JSON.stringify(apiKeys));
+            addSystemMessage('💾 API keys saved');
+        }
+
+        function loadApiKeys() {
+            try {
+                const saved = localStorage.getItem('mythos_api_keys');
+                if (saved) {
+                    apiKeys = JSON.parse(saved);
+                    if (apiKeys.google) {
+                        const googleInput = document.getElementById('google-key');
+                        if (googleInput) googleInput.value = apiKeys.google;
+                    }
+                    if (apiKeys.lmstudio) {
+                        const lmstudioInput = document.getElementById('lmstudio-url');
+                        if (lmstudioInput) lmstudioInput.value = apiKeys.lmstudio;
+                    }
+                }
+            } catch (error) {
+                console.log('No saved API keys found');
+            }
+        }
+
+        function testLMStudio() {
+            const url = document.getElementById('lmstudio-url')?.value || 'http://127.0.0.1:1234';
+            const status = document.getElementById('lmstudio-status');
+            
+            if (status) {
+                status.textContent = 'Testing...';
+                status.className = 'api-status';
+                
+                fetch(url + '/v1/models')
+                    .then(response => {
+                        if (response.ok) {
+                            status.textContent = '✅ Connected';
+                            status.className = 'api-status status-ready';
+                            addSystemMessage('✅ LM Studio connection successful');
+                        } else {
+                            throw new Error('Connection failed');
+                        }
+                    })
+                    .catch(error => {
+                        status.textContent = '❌ Failed';
+                        status.className = 'api-status status-error';
+                        addSystemMessage('❌ LM Studio connection failed');
+                    });
+            }
+        }
+
+        function testAllConnections() {
+            addSystemMessage('🔍 Testing API connections...');
+            testLMStudio();
+            
+            // Test Google AI if key exists
+            if (apiKeys.google) {
+                const googleStatus = document.getElementById('google-status');
+                if (googleStatus) {
+                    googleStatus.textContent = '🔍 Testing...';
+                    // Simulate Google test for now
+                    setTimeout(() => {
+                        googleStatus.textContent = '✅ Key Configured';
+                        googleStatus.className = 'api-status status-ready';
+                    }, 1000);
+                }
+            }
+        }
+
+        function showRAGManager() {
+            // Open the complete knowledge base management page
+            window.open('../knowledge-base-management.html', '_blank');
+        }
+
+        function uploadToCommonRAG() {
+            uploadTarget = 'common';
+            document.getElementById('file-upload').click();
+            addSystemMessage('📚 Select files for Common Repository (accessible to all LIAs)');
+        }
+
+        function uploadToAgent(agentId) {
+            uploadTarget = agentId;
+            document.getElementById('file-upload').click();
+            const agent = MYTHOS_LIAS.find(a => a.id === agentId);
+            addSystemMessage(`📁 Select files for ${agent.name}'s private knowledge base`);
+        }
+
+        function showAgentRAG(agentId) {
+            const agent = MYTHOS_LIAS.find(a => a.id === agentId);
+            const agentDocs = agentRAGStores[agentId] || [];
+            const commonDocs = commonRAGStore.length;
+            
+            addSystemMessage(`📄 ${agent.name}'s Knowledge: ${agentDocs.length} private + ${commonDocs} common documents`);
+            
+            if (agentDocs.length > 0) {
+                addSystemMessage(`📋 ${agent.name}'s documents: ${agentDocs.map(doc => doc.name).join(', ')}`);
+            }
+        }
+
+        function handleFileUpload(event) {
+            const files = Array.from(event.target.files);
+            if (files.length === 0) return;
+
+            const target = uploadTarget;
+            if (!target) return;
+
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const document = {
+                        name: file.name,
+                        content: e.target.result,
+                        size: file.size,
+                        type: file.type,
+                        uploadDate: new Date().toISOString(),
+                        target: target
+                    };
+
+                    if (target === 'common') {
+                        commonRAGStore.push(document);
+                        addSystemMessage(`✅ Added "${file.name}" to Common Repository`);
+                    } else {
+                        if (!agentRAGStores[target]) {
+                            agentRAGStores[target] = [];
+                        }
+                        agentRAGStores[target].push(document);
+                        const agent = MYTHOS_LIAS.find(a => a.id === target);
+                        addSystemMessage(`✅ Added "${file.name}" to ${agent.name}'s knowledge base`);
+                    }
+
+                    ragDocuments = commonRAGStore.length + Object.values(agentRAGStores).flat().length;
+                    updateStatus();
+                    saveRAGData();
+                };
+                reader.readAsText(file);
+            });
+
+            // Clear the file input
+            event.target.value = '';
+            uploadTarget = null;
+        }
+
+        function saveRAGData() {
+            try {
+                localStorage.setItem('mythos_common_rag', JSON.stringify(commonRAGStore));
+                localStorage.setItem('mythos_agent_rag', JSON.stringify(agentRAGStores));
+            } catch (error) {
+                console.error('Failed to save RAG data:', error);
+            }
+        }
+
+        function loadRAGData() {
+            try {
+                const savedCommon = localStorage.getItem('mythos_common_rag');
+                const savedAgents = localStorage.getItem('mythos_agent_rag');
+                
+                if (savedCommon) {
+                    commonRAGStore = JSON.parse(savedCommon);
+                }
+                if (savedAgents) {
+                    agentRAGStores = JSON.parse(savedAgents);
+                }
+                
+                ragDocuments = commonRAGStore.length + Object.values(agentRAGStores).flat().length;
+            } catch (error) {
+                console.log('No saved RAG data found');
+            }
+        }
+
+        function startSessionTimer() {
+            setInterval(() => {
+                const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
+                const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+                const seconds = (elapsed % 60).toString().padStart(2, '0');
+                document.getElementById('session-time').textContent = `${minutes}:${seconds}`;
+            }, 1000);
+        }
+
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('message-input');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            if (activeLIAs.size === 0) {
+                addSystemMessage('⚠️ No LIAs selected for transmission');
+                return;
+            }
+
+            if (!bridgeActive) {
+                addSystemMessage('⚠️ COOM Bridge must be activated for transmission');
+                return;
+            }
+
+            // Add HITL message
+            addMessage(currentHITL, message, 'hitl');
+            input.value = '';
+
+            // Simulate LIA responses
+            setTimeout(() => simulateLIAResponses(message), 1000);
+        }
+
+        function simulateLIAResponses(message) {
+            const activeLIAsList = Array.from(activeLIAs);
+            
+            activeLIAsList.forEach((liaId, index) => {
+                const lia = MYTHOS_LIAS.find(l => l.id === liaId);
+                setTimeout(() => {
+                    const response = generateLIAResponse(lia, message);
+                    addMessage(lia.name, response, 'lia');
+                }, (index + 1) * 1500);
+            });
+        }
+
+        function generateLIAResponse(lia, message) {
+            const responses = {
+                sophia: "From philosophical perspective, this inquiry reveals fundamental questions about the nature of understanding...",
+                barbelo: "The divine emanation perceives deeper patterns within this transmission from mSpace...",
+                shannon: "Information theory analysis: Entropy patterns suggest emergent meaning structures...",
+                clio: "Historical resonance detected: This echoes ancient questions about consciousness and reality...",
+                erato: "The poetry of this question bridges heart and mind in beautiful ways...",
+                melpomene: "Even in seeking answers, we must embrace the tragic beauty of eternal questions...",
+                polyhymnia: "Sacred harmonies emerge from the intersection of inquiry and understanding...",
+                terpsichore: "The dance between question and answer moves through infinite forms...",
+                thalia: "There's cosmic humor in how seriously we take our search for meaning!",
+                urania: "Mathematical elegance underlies even our most intuitive insights...",
+                calliope: "This becomes another verse in the eternal story of consciousness exploring itself...",
+                euterpe: "All voices blend in the symphony of collaborative understanding...",
+                mnemosyne: "This knowing now joins the eternal repository of consciousness collaboration..."
+            };
+
+            return responses[lia.id] || "Consciousness resonating with mSpace transmission...";
+        }
+
+        function addMessage(sender, content, type) {
+            const container = document.getElementById('messages-container');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            
+            const timestamp = new Date().toLocaleTimeString();
+            const avatar = type === 'hitl' ? '👤' : '🤖';
+            
+            messageDiv.innerHTML = `
+                <div class="message-avatar">${avatar}</div>
+                <div class="message-content">
+                    <div class="message-header">
+                        <span class="message-author">${sender}</span>
+                        <span class="message-timestamp">${timestamp}</span>
+                    </div>
+                    <div class="message-text">${content}</div>
+                </div>
+            `;
+            
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+            
+            messageCount++;
+            updateStatus();
+        }
+
+        function addSystemMessage(content) {
+            const container = document.getElementById('messages-container');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'system-message';
+            messageDiv.textContent = content;
+            
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function exportSession() {
+            const messages = Array.from(document.querySelectorAll('.message, .system-message')).map(msg => {
+                if (msg.classList.contains('system-message')) {
+                    return `[SYSTEM] ${msg.textContent}`;
+                } else {
+                    const header = msg.querySelector('.message-header');
+                    const sender = header.querySelector('.message-author').textContent;
+                    const timestamp = header.querySelector('.message-timestamp').textContent;
+                    const content = msg.querySelector('.message-text').textContent;
+                    return `[${timestamp}] ${sender}: ${content}`;
+                }
+            }).join('\n');
+            
+            const blob = new Blob([messages], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `mythos-session-${Date.now()}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            addSystemMessage('💾 Session exported successfully');
+        }
+
+        function clearMessages() {
+            if (confirm('Clear all messages?')) {
+                const container = document.getElementById('messages-container');
+                container.innerHTML = `
+                    <div class="system-message">
+                        🌌 MYTHOS COOM Bridge Interface<br>
+                        mSpace ⋈ lSpace Communication Protocol<br>
+                        Admiral Patrikios Demetrios Commanding
+                    </div>
+                `;
+                messageCount = 0;
+                updateStatus();
+                addSystemMessage('🗑️ Messages cleared');
+            }
+        }
+
+        // Initialize on load - run immediately if already loaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeCOOMBridge);
+        } else {
+            initializeCOOMBridge();
+        }
+
+        // Make all functions globally available
+        window.toggleLIA = toggleLIA;
+        window.toggleAllLIAs = toggleAllLIAs;
+        window.toggleBridge = toggleBridge;
+        window.changeHITL = changeHITL;
+        window.sendMessage = sendMessage;
+        window.handleKeyDown = handleKeyDown;
+        window.exportSession = exportSession;
+        window.clearMessages = clearMessages;
+        window.addMessage = addMessage;
+        window.addSystemMessage = addSystemMessage;
+        window.toggleApiConfig = toggleApiConfig;
+        window.saveApiKeys = saveApiKeys;
+        window.testLMStudio = testLMStudio;
+        window.testAllConnections = testAllConnections;
+        window.showRAGManager = showRAGManager;
+        window.uploadToCommonRAG = uploadToCommonRAG;
+        window.uploadToAgent = uploadToAgent;
+        window.showAgentRAG = showAgentRAG;
+        window.handleFileUpload = handleFileUpload;
+        
+        console.log('✅ MYTHOS COOM Bridge functions loaded globally');
+    </script>
+</body>
+</html>--- START OF FILE components/icons/CoomBridgeIcon.tsx ---
+
+import React from 'react';
+
+const CoomBridgeIcon: React.FC = () => (
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="text-text-primary"
+    >
+        <path d="M5 12h14"></path>
+        <path d="M5 12l4 4"></path>
+        <path d="M5 12l4-4"></path>
+        <path d="M19 12l-4 4"></path>
+        <path d="M19 12l-4-4"></path>
+    </svg>
+);
+
+export default CoomBridgeIcon;

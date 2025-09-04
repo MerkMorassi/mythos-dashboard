@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import type { ChatMessage as Message } from '../types';
 import { MessageRole } from '../types';
@@ -56,19 +57,27 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSpeak, isSpeaking,
   }`;
 
   const hasContent = message.content || message.imageUrl || message.videoUrl;
-  const isPlaceholder = message.content === '...' || message.content?.includes('Generating image');
+  const isPlaceholder = message.content === '...';
   const hasFeedbackButtons = !isUser && hasContent && !isPlaceholder;
+  const agentAuthorName = message.agent ? message.agent.name : 'Assistant';
+  const userAuthorName = message.operator ? message.operator.name : 'User';
 
   return (
     <div className={wrapperClasses}>
       {!isUser && (
-        <div className={iconWrapperClasses}>
-          <Icon />
+        <div className={iconWrapperClasses} title={agentAuthorName}>
+           {message.agent ? <span className="text-xl">{message.agent.sigil}</span> : <Icon />}
         </div>
       )}
       
-      <div className="flex flex-col items-start gap-2 group">
-        <div className={messageClasses}>
+      <div className={`flex flex-col gap-2 group w-full max-w-lg lg:max-w-xl ${isUser ? 'items-end' : 'items-start'}`}>
+        {isUser && message.operator && (
+            <div className="text-xs text-text-secondary font-bold">{userAuthorName}</div>
+        )}
+        {!isUser && (
+            <div className="text-xs text-text-secondary font-bold">{agentAuthorName}</div>
+        )}
+        <div className={`${messageClasses} w-full`}>
           {message.videoUrl && (
             <div className="mb-2 rounded-md bg-[#202020] border border-accent overflow-hidden">
                 <video src={message.videoUrl} controls className="w-full"></video>

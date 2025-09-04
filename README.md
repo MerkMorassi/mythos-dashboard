@@ -10,14 +10,15 @@ Welcome to the MYTHOS DASHBOARD, a powerful, multi-tool AI assistant designed fo
 - **Multi-Tool Interface:** Switch between a wide array of specialized AI tools:
   - **Generate:** Chat, Text, Code, Images, Video, and Speech (TTS).
   - **Analyze:** Images, Code, Documents, Audio, and even Web URLs.
-  - **Data:** Persistent AI-generated image gallery and a local file viewer.
+  - **Data:** Persistent AI-generated image gallery, a local file viewer, and a document manager for Retrieval-Augmented Generation (RAG).
+- **Agentic System:** Interact with a hub of specialized AI agents, each with its own unique expertise and knowledge base.
 - **Real-Time Streaming:** Text-based tools stream responses in real-time, providing an interactive and responsive user experience.
 - **AI-Powered Media Generation:** Create stunning images and videos from simple text prompts using the latest models.
-- **Personalized Feedback Loop:** A "thumbs up/down" system on AI generations teaches the model your stylistic preferences, tailoring future results to your taste.
-- **Persistent Galleries:**
-  - **AI Gallery:** All generated images are saved to a persistent gallery, complete with prompts and seeds, for later viewing.
-  - **Local Viewer:** Upload your own images for persistent storage. Features on-demand AI analysis that automatically generates descriptive tags for powerful searching.
-- **External Tool Integration:** Seamlessly launch and pre-fill prompts for external services like Perchance Image Mixer, Suno Music, and NotebookLM.
+- **Persistent Galleries & Databases:**
+  - **AI Gallery:** All generated images are saved to a persistent gallery for later viewing.
+  - **Local Viewer:** Upload your own images for persistent storage and on-demand AI analysis.
+  - **RAG Knowledge Base:** Upload documents to give your AI agents a specific knowledge base, enabling them to answer questions with grounded, accurate information.
+- **External Tool Integration:** Seamlessly launch and pre-fill prompts for external services like Perchance Image Mixer and Suno Music.
 
 ---
 
@@ -25,74 +26,73 @@ Welcome to the MYTHOS DASHBOARD, a powerful, multi-tool AI assistant designed fo
 
 - **Frontend:** React, TypeScript, Tailwind CSS
 - **Backend:** Node.js, Express, TypeScript
-- **AI Models:** Google Gemini API (`gemini-2.5-flash`, `imagen-3.0-generate-002`, `veo-2.0-generate-001`)
-- **Database:** PostgreSQL for persistent storage of galleries, user feedback, and activity logs.
+- **AI Models:** Google Gemini API (`gemini-2.5-flash`, `imagen-4.0-generate-001`, `veo-2.0-generate-001`, `text-embedding-004`)
+- **Database:** PostgreSQL with `pgvector` for persistent storage and semantic search capabilities.
 - **File Handling:** Multer for file uploads and server-side storage.
 
 ---
 
-## ⚙️ Setup and Installation
+## ⚙️ Getting Started
 
-Follow these steps to get the MYTHOS DASHBOARD running on your local machine.
+Follow these steps to get the MYTHOS DASHBOARD running on your local machine. For a more detailed, step-by-step guide, please see the **[INSTALL_MANUAL.md](INSTALL_MANUAL.md)** file.
 
-### Prerequisites
+### 1. Prerequisites
 
-You must have [Node.js](https://nodejs.org/) (which includes `npm`) and a running [PostgreSQL](https://www.postgresql.org/download/) instance on your computer.
+You must have [Node.js](https://nodejs.org/) (v18+ recommended) and a running [PostgreSQL](https://www.postgresql.org/download/) instance (v14+ recommended) with the `pgvector` extension enabled on your computer.
 
-### Step 1: Clone the Repository
+### 2. Clone & Install
+
+Clone the repository and install the necessary `npm` packages.
 
 ```bash
-git clone https://github.com/MerkMorassi/mythos-dashboard.git
+git clone https://github.com/your-repo/mythos-dashboard.git
 cd mythos-dashboard
-```
-
-### Step 2: Install Dependencies
-
-In the project's root directory, run the following command to install all necessary packages for both the server and the client.
-
-```bash
 npm install
 ```
 
-### Step 3: Configure Environment Variables
+### 3. Configure Environment Variables
 
-The backend server requires your Google Gemini API key and database connection details.
+The backend server requires API keys and database connection details.
 
-1.  Create a new file named `.env` in the root directory. You can copy the `.env.example` file to get started.
-2.  Add your secret API key and database credentials to this file.
+1.  Create a new file named `.env` in the root directory.
+2.  Add your secret API keys and database credentials to this file. See the example below.
 
 ```
 # === API KEYS ===
 # Your secret Google Gemini API Key
-API_KEY=AIzaSy...your...secret...key...here
+API_KEY="AIzaSy...your...secret...key...here"
+
+# (Optional) Your ElevenLabs API key for additional TTS voices
+ELEVENLABS_API_KEY="your...elevenlabs...key...here"
 
 # === SERVER CONFIG ===
 # The port the backend server will run on (optional, defaults to 3001)
 PORT=3001
 
 # === POSTGRESQL DATABASE CONNECTION ===
-PG_USER=your_postgres_username
-PG_HOST=localhost
-PG_DATABASE=your_database_name
-PG_PASSWORD=your_postgres_password
+# IMPORTANT: For pgvector, use a connection string if your provider gives one.
+# Otherwise, fill out the individual variables.
+# PG_CONNECTION_STRING="postgres://user:password@host:port/database"
+PG_USER="your_postgres_username"
+PG_HOST="localhost"
+PG_DATABASE="your_database_name"
+PG_PASSWORD="your_postgres_password"
 PG_PORT=5432
 ```
 
-**Important:** The `.env` file contains sensitive information. It is included in `.gitignore` to prevent it from being committed to version control.
+**Important:** Your `.env` file contains sensitive information and should never be committed to version control.
 
-### Step 4: Run the Application
+### 4. Run the Application
 
-The application consists of a backend server and a frontend client, which must be run concurrently. You will need to open **two separate terminals** for this.
+The application consists of a backend server and a frontend client, which must be run concurrently in **two separate terminals**.
 
 **Terminal 1: Start the Backend Server**
 
-This command starts the Node.js/Express server, which handles API requests, interacts with the Gemini API, and manages the database.
+This command starts the Node.js/Express server. On the first run, it will automatically create the necessary tables in your database.
 
 ```bash
 npm run server
 ```
-
-On the first run, the server will automatically create the necessary tables in your PostgreSQL database. You should see log messages confirming that the server is listening and the database is ready. This server also serves the `uploads` and `local_uploads` directories for media files.
 
 **Terminal 2: Start the Frontend Client**
 
@@ -102,7 +102,15 @@ This command serves the React application.
 npm run client
 ```
 
-This will provide a local URL (e.g., `http://localhost:8080`). Open this address in your web browser to use the MYTHOS DASHBOARD.
+Open the local URL provided by the client (e.g., `http://localhost:8080`) in your web browser to use the dashboard.
+
+---
+
+## 🌐 Deployment
+
+This is a full-stack application that requires a hosting environment capable of running a Node.js server and a PostgreSQL database. A platform like **Render** is highly recommended as it provides free tiers for both.
+
+For a complete, step-by-step deployment guide, please refer to **[INSTALL_MANUAL.md](INSTALL_MANUAL.md)**.
 
 ---
 

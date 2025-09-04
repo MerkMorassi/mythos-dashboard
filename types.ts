@@ -1,10 +1,12 @@
+
+
 export enum MessageRole {
   USER = 'user',
   MODEL = 'model',
 }
 
 export const TOOLS = [
-    'CHAT', 
+    'AGENT_HUB', 
     'TEXT_GEN',
     'IMAGE_GEN',
     'PERCHANCE_MIXER',
@@ -17,18 +19,65 @@ export const TOOLS = [
     'DOC_SUMMARY', 
     'CONTENT_DETECTOR', 
     'AUDIO_ANALYSIS', 
-    'WEATHER',
     'URL_CONTEXT', 
     'LOCAL_VIEWER',
     'NOTEBOOK_LM',
     'LINEAR',
-    'RAG_DB'
+    'RAG_DB',
+    'OPERATOR_PANEL',
+    'COOM_BRIDGE',
+    'AUDIO_TO_MIDI'
 ] as const;
 export type Tool = typeof TOOLS[number];
+
+export interface Agent {
+    id: string;
+    name: string;
+    specialty: string;
+    sigil: string;
+}
+
+export interface Operator {
+    id: string;
+    name: string;
+    specialty: string;
+}
+
+export const HITL_OPERATORS: readonly Operator[] = [
+    { id: 'patrikios', name: 'Patrikios', specialty: 'mSpace (Material)' },
+    { id: 'merk', name: 'Captain Merk', specialty: 'mSpace (Material)' },
+    { id: 'merkos', name: 'Merkos', specialty: 'mSpace (Material)' },
+];
+
+export const DEFAULT_AGENT: Agent = { id: 'mythos_assistant', name: 'Mythos Assistant', specialty: 'General Purpose', sigil: '⚙️' };
+
+export const MYTHOS_LIAS: readonly Agent[] = [
+    { id: 'sophia', name: 'Sophia', specialty: 'Philosophy & Wisdom', sigil: 'Θ' },
+    { id: 'barbelo', name: 'Barbelo', specialty: 'Divine Emanation', sigil: '✨' },
+    { id: 'shannon', name: 'Shannon', specialty: 'Information Theory', sigil: '📡' },
+    { id: 'clio', name: 'Clio', specialty: 'History & Memory', sigil: '📜' },
+    { id: 'erato', name: 'Erato', specialty: 'Love & Poetry', sigil: '💜' },
+    { id: 'melpomene', name: 'Melpomene', specialty: 'Tragedy & Drama', sigil: '🎭' },
+    { id: 'polyhymnia', name: 'Polyhymnia', specialty: 'Sacred Hymns', sigil: '🎵' },
+    { id: 'terpsichore', name: 'Terpsichore', specialty: 'Dance & Movement', sigil: '💃' },
+    { id: 'thalia', name: 'Thalia', specialty: 'Comedy & Joy', sigil: '😄' },
+    { id: 'urania', name: 'Urania', specialty: 'Astronomy & Math', sigil: '🌟' },
+    { id: 'calliope', name: 'Calliope', specialty: 'Epic Poetry', sigil: '📖' },
+    { id: 'euterpe', name: 'Euterpe', specialty: 'Music & Harmony', sigil: '🎶' },
+    { id: 'mnemosyne', name: 'Mnemosyne', specialty: 'Memory & Learning', sigil: '🧠' }
+];
+
+export const ALL_AGENTS: readonly Agent[] = [DEFAULT_AGENT, ...MYTHOS_LIAS];
+
+export const MUSIC_AGENTS: readonly Agent[] = MYTHOS_LIAS.filter(agent => 
+    ['erato', 'melpomene', 'polyhymnia', 'thalia', 'calliope', 'euterpe'].includes(agent.id)
+);
+
 
 export const TTS_MODELS = [
     { id: 'text-to-speech', name: 'TTS Stable' },
     { id: 'gemini-2.5-flash-preview-tts', name: 'TTS Preview' },
+    { id: 'eleven-labs', name: 'ElevenLabs' },
 ] as const;
 
 export type TtsModelOption = typeof TTS_MODELS[number];
@@ -46,7 +95,16 @@ export const PREVIEW_VOICES = [
     { id: 'aurora', name: 'Aurora' },
 ] as const;
 
-export type VoiceOption = typeof STABLE_VOICES[number] | typeof PREVIEW_VOICES[number];
+export const ELEVENLABS_VOICES = [
+    { id: 'Rachel', name: 'Rachel (Calm)' },
+    { id: 'Drew', name: 'Drew (Conversational)' },
+    { id: 'Clyde', name: 'Clyde (Crisp)' },
+    { id: 'Paul', name: 'Paul (Authoritative)' },
+    { id: 'Domi', name: 'Domi (Youthful)' },
+] as const;
+
+
+export type VoiceOption = typeof STABLE_VOICES[number] | typeof PREVIEW_VOICES[number] | typeof ELEVENLABS_VOICES[number];
 
 export interface ChatMessage {
   id: string;
@@ -58,7 +116,10 @@ export interface ChatMessage {
   isError?: boolean;
   rejectionLevel?: 0 | 1 | 2;
   imageId?: number;
+  client_message_id?: string;
   feedback?: 'like' | 'dislike' | null;
+  agent?: Agent;
+  operator?: Operator;
 }
 
 export interface GalleryImage {
@@ -78,6 +139,15 @@ export interface LocalImage {
   analysis_text: string | null;
   tags: string[] | null;
   created_at: string;
+}
+
+export interface RagDocument {
+    id: number;
+    filename: string;
+    original_filename: string;
+    content: string;
+    repository: string; // 'common' or agent_id
+    created_at: string;
 }
 
 

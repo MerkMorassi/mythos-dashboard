@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { Tool, GalleryImage } from '../types';
 import SendIcon from './icons/SendIcon';
@@ -182,7 +179,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   
   const getToolConfig = () => {
     switch(activeTool) {
-      case 'CHAT':
+      case 'AGENT_HUB':
         return { placeholder: 'Send a message...', sendDisabled: isLoading || (!input.trim() && !imageFile && !docFile && !audioFile), showCamera: true, showPaperclip: true, showAudioUpload: true };
       case 'IMAGE_GEN':
         return { placeholder: 'Describe an image to generate...', sendDisabled: isLoading || !input.trim(), showCamera: false, showPaperclip: false, showAudioUpload: false };

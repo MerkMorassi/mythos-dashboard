@@ -1,9 +1,10 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Part } from '@google/genai';
-import { synthesizeSpeech, generateImageFromPrompt, summarizeDocument, generateVideo, checkVideoOperationStatus, fetchGallery, detectContentSafety, analyzeAudio, generateCode, generateText, analyzeCode, getWeather, submitFeedback, fetchGenerationStream, analyzeImageOnBackend, processUrl, generateVideoFromLastImage } from './services/geminiService';
-import type { ChatMessage as Message, VoiceOption, Tool, TtsModelOption, GalleryImage } from './types';
-import { MessageRole, TTS_MODELS, STABLE_VOICES, PREVIEW_VOICES } from './types';
+import { synthesizeSpeech, generateImageFromPrompt, generateVideo, checkVideoOperationStatus, fetchGallery, detectContentSafety, submitFeedback, fetchGenerationStream, analyzeImageOnBackend, generateVideoFromLastImage, analyzeAudioForSunoStyle, generateSunoLyrics, convertAudioToMidi } from './services/geminiService';
+import type { ChatMessage as Message, VoiceOption, Tool, TtsModelOption, GalleryImage, Agent } from './types';
+import { MessageRole, TTS_MODELS, STABLE_VOICES, PREVIEW_VOICES, ELEVENLABS_VOICES, MYTHOS_LIAS, ALL_AGENTS } from './types';
 import ChatMessage from './components/ChatMessage';
 import MessageInput from './components/MessageInput';
 import Header from './components/Header';
@@ -11,10 +12,17 @@ import Toolbar from './components/Toolbar';
 import GalleryLightbox from './components/GalleryLightbox';
 import GalleryPanel from './components/GalleryPanel';
 import PerchancePromptPanel from './components/PerchancePromptPanel';
+import SunoPromptPanel from './components/SunoPromptPanel';
 import TtsPanel from './components/TtsPanel';
 import ChevronDoubleLeftIcon from './components/icons/ChevronDoubleLeftIcon';
 import ChevronDoubleRightIcon from './components/icons/ChevronDoubleRightIcon';
 import LocalImageViewer from './components/LocalImageViewer';
+import AgentPanel from './components/AgentPanel';
+import RagManager from './components/RagManager';
+import OperatorPanel from './components/OperatorPanel';
+import { HITL_OPERATORS } from './types';
+import type { Operator } from './types';
+import AudioToMidiConverter from './components/AudioToMidiConverter';
 
 const markdownToPlainText = (markdown: string): string => {
   if (!markdown) return '';
@@ -57,7 +65,7 @@ export const App: React.FC = () => {
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [input, setInput] = useState('');
-  const [activeTool, setActiveTool] = useState<Tool>('CHAT');
+  const [activeTool, setActiveTool] = useState<Tool>('AGENT_HUB');
   const [selectedTtsModel, setSelectedTtsModel] = useState<TtsModelOption['id']>(TTS_MODELS[0].id);
   const [availableVoices, setAvailableVoices] = useState<readonly VoiceOption[]>(STABLE_VOICES);
   const [selectedVoice, setSelectedVoice] = useState<VoiceOption['id']>(STABLE_VOICES[0].id);
@@ -65,7 +73,10 @@ export const App: React.FC = () => {
   const [lastGeneratedImageFilename, setLastGeneratedImageFilename] = useState<string | null>(null);
   
   const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
-  const [rightPanelContent, setRightPanelContent] = useState<'GALLERY' | 'PERCHANCE' | 'TTS' | null>(null);
+  const [rightPanelContent, setRightPanelContent] = useState<'GALLERY' | 'PERCHANCE' | 'TTS' | 'AGENTS' | 'SUNO' | 'OPERATOR' | null>('AGENTS');
+  const [activeAgents, setActiveAgents] = useState<Set<string>>(() => new Set(['mythos_assistant']));
+  const [activeOperator, setActiveOperator] = useState<Operator>(HITL_OPERATORS[0]);
+
 
   const [perchanceFormData, setPerchanceFormData] = useState({
     description: '',
@@ -74,6 +85,12 @@ export const App: React.FC = () => {
     shape: 'Landscape (768x512)',
     Gscale: '7',
     seed: ''
+  });
+  const [sunoFormData, setSunoFormData] = useState({
+    lyrics: '',
+    style: '',
+    title: '',
+    instrumental: false,
   });
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -89,9 +106,12 @@ export const App: React.FC = () => {
     if (selectedTtsModel === 'text-to-speech') {
         setAvailableVoices(STABLE_VOICES);
         setSelectedVoice(STABLE_VOICES[0].id);
-    } else {
+    } else if (selectedTtsModel === 'gemini-2.5-flash-preview-tts') {
         setAvailableVoices(PREVIEW_VOICES);
         setSelectedVoice(PREVIEW_VOICES[0].id);
+    } else if (selectedTtsModel === 'eleven-labs') {
+        setAvailableVoices(ELEVENLABS_VOICES);
+        setSelectedVoice(ELEVENLABS_VOICES[0].id);
     }
   }, [selectedTtsModel]);
 
@@ -178,46 +198,87 @@ export const App: React.FC = () => {
         id: crypto.randomUUID(), 
         role: MessageRole.USER, 
         content: finalUserMessageContent,
+        operator: activeOperator,
         ...userMessageOverrides 
     };
     
     // Add user message to UI
-    const newMessages = [...messages, userMessage];
+    let newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setIsLoading(true);
 
     const currentHistory = newMessages.filter(m => (m.role !== MessageRole.MODEL || !m.isError) && m.id !== 'init').map(m => ({
         role: m.role,
-        parts: [{ text: m.content }]
+        parts: [{ text: m.operator ? `[OPERATOR: ${m.operator.name}]\n${m.content}` : m.content }]
     }));
     
     try {
-      const responseMessageId = crypto.randomUUID();
-      const reader = await fetchGenerationStream(tool, userPrompt, file, currentHistory, responseMessageId);
-      const decoder = new TextDecoder();
-      let responseText = '';
-      
-      // Add empty model message bubble
-      setMessages((prev) => [...prev, { id: responseMessageId, role: MessageRole.MODEL, content: '...' }]);
-  
-      // Stream the response
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        responseText += decoder.decode(value, { stream: true });
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === responseMessageId ? { ...msg, content: responseText } : msg
-          )
-        );
-      }
-      
-      // Final update in case of empty stream
-      setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === responseMessageId && msg.content === '...' ? { ...msg, content: '' } : msg
-          )
-        );
+        if (tool === 'AGENT_HUB') {
+            if (activeAgents.size === 0) {
+                addMessage({ role: MessageRole.MODEL, content: "Please select at least one agent to chat with.", isError: true });
+                setIsLoading(false);
+                return;
+            }
+            const agentsToQuery = Array.from(activeAgents);
+            for (const agentId of agentsToQuery) {
+                 const agent = ALL_AGENTS.find(a => a.id === agentId);
+                 if (!agent) continue;
+                 
+                 const responseMessageId = crypto.randomUUID();
+                 setMessages(prev => [...prev, { id: responseMessageId, role: MessageRole.MODEL, content: '...', agent: agent }]);
+                 
+                 const reader = await fetchGenerationStream(tool, userPrompt, file, currentHistory, responseMessageId, [agentId]);
+                 const decoder = new TextDecoder();
+                 let responseText = '';
+
+                 while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    let chunk = decoder.decode(value, { stream: true });
+                    // The server prefixes with agentId::, we strip it here.
+                    const prefix = `${agentId}::`;
+                    if (responseText === '' && chunk.startsWith(prefix)) {
+                        chunk = chunk.substring(prefix.length);
+                    }
+                    responseText += chunk;
+                    
+                    setMessages(prev => prev.map(msg =>
+                        msg.id === responseMessageId ? { ...msg, content: responseText } : msg
+                    ));
+                 }
+                 // Add the final response to history for the next agent
+                 currentHistory.push({ role: MessageRole.MODEL, parts: [{ text: responseText }]});
+            }
+
+        } else {
+             const responseMessageId = crypto.randomUUID();
+             const reader = await fetchGenerationStream(tool, userPrompt, file, currentHistory, responseMessageId, []);
+             const decoder = new TextDecoder();
+             let responseText = '';
+             
+             // Add empty model message bubble
+             setMessages((prev) => [...prev, { id: responseMessageId, role: MessageRole.MODEL, content: '...' }]);
+         
+             // Stream the response
+             while (true) {
+               const { done, value } = await reader.read();
+               if (done) break;
+               responseText += decoder.decode(value, { stream: true });
+               setMessages((prev) =>
+                 prev.map((msg) =>
+                   msg.id === responseMessageId ? { ...msg, content: responseText } : msg
+                 )
+               );
+             }
+             
+             // Final update in case of empty stream
+             setMessages((prev) =>
+                 prev.map((msg) =>
+                   msg.id === responseMessageId && msg.content === '...' ? { ...msg, content: '' } : msg
+                 )
+               );
+        }
 
     } catch (error) {
       console.error(`Error during ${tool} generation:`, error);
@@ -230,7 +291,7 @@ export const App: React.FC = () => {
 
 
   const handleGenerateImage = async (prompt: string) => {
-    addMessage({ role: MessageRole.USER, content: prompt });
+    addMessage({ role: MessageRole.USER, content: prompt, operator: activeOperator });
     setIsLoading(true);
     setLastGeneratedImageFilename(null);
     const responseMessageId = crypto.randomUUID();
@@ -241,7 +302,7 @@ export const App: React.FC = () => {
         setLastGeneratedImageFilename(filename);
         setMessages(prev => prev.map(msg => 
             msg.id === responseMessageId 
-            ? { ...msg, content: '', imageUrl, imageId: id, feedback: null }
+            ? { ...msg, content: '', imageUrl, imageId: id, feedback: null, client_message_id: responseMessageId }
             : msg
         ));
     } catch (error) {
@@ -272,7 +333,7 @@ export const App: React.FC = () => {
         const localUrl = operation.response?.generatedVideos?.[0]?.video?.localUrl;
         if (localUrl) {
             const videoUrl = `http://localhost:3001${localUrl}`;
-             setMessages(prev => prev.map(msg => msg.id === responseMessageId ? {...msg, content: 'Video is ready!', videoUrl} : msg));
+             setMessages(prev => prev.map(msg => msg.id === responseMessageId ? {...msg, content: '', videoUrl} : msg));
         } else {
             throw new Error('Video generation finished but no local URL was provided.');
         }
@@ -287,7 +348,7 @@ export const App: React.FC = () => {
   };
   
   const handleGenerateVideo = async (prompt: string, imageFile: File | null) => {
-    addMessage({ role: MessageRole.USER, content: prompt, imageUrl: imageFile ? URL.createObjectURL(imageFile) : undefined });
+    addMessage({ role: MessageRole.USER, content: prompt, operator: activeOperator, imageUrl: imageFile ? URL.createObjectURL(imageFile) : undefined });
     setIsLoading(true);
     const responseMessageId = crypto.randomUUID();
     setMessages(prev => [...prev, {id: responseMessageId, role: MessageRole.MODEL, content: '...'}]);
@@ -297,7 +358,7 @@ export const App: React.FC = () => {
   const handleGenerateVideoFromLastImage = async (prompt: string) => {
     if (!lastGeneratedImageFilename) return;
     const imageUrl = `http://localhost:3001/uploads/${lastGeneratedImageFilename}`;
-    addMessage({ role: MessageRole.USER, content: prompt, imageUrl });
+    addMessage({ role: MessageRole.USER, content: prompt, operator: activeOperator, imageUrl });
     setIsLoading(true);
     const responseMessageId = crypto.randomUUID();
     setMessages(prev => [...prev, {id: responseMessageId, role: MessageRole.MODEL, content: '...'}]);
@@ -305,7 +366,7 @@ export const App: React.FC = () => {
   };
 
   const handleDetectContentSafety = async (file: File) => {
-      addMessage({ role: MessageRole.USER, content: `Checking content safety for document:`, fileName: file.name });
+      addMessage({ role: MessageRole.USER, content: `Checking content safety for document:`, operator: activeOperator, fileName: file.name });
       setIsLoading(true);
       const responseMessageId = crypto.randomUUID();
       setMessages(prev => [...prev, {id: responseMessageId, role: MessageRole.MODEL, content: '...'}]);
@@ -322,24 +383,6 @@ export const App: React.FC = () => {
       }
   };
 
-  const handleGetWeather = async (location: string) => {
-    addMessage({ role: MessageRole.USER, content: `Get weather for: ${location}` });
-    setIsLoading(true);
-    const responseMessageId = crypto.randomUUID();
-    setMessages(prev => [...prev, {id: responseMessageId, role: MessageRole.MODEL, content: '...'}]);
-    try {
-      const weather = await getWeather(location, responseMessageId);
-      const weatherReport = `Weather for ${weather.location}:\n- Temperature: ${weather.temperature}°${weather.unit}\n- Condition: ${weather.condition}\n- Humidity: ${weather.humidity}%`;
-      setMessages(prev => prev.map(msg => msg.id === responseMessageId ? {...msg, content: weatherReport} : msg));
-    } catch (error) {
-      console.error('Error fetching weather:', error);
-      const errorMessage = `Failed to get weather: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      setMessages(prev => prev.map(msg => msg.id === responseMessageId ? {...msg, content: errorMessage, isError: true} : msg));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
   const handleFetchGallery = useCallback(async () => {
     // No longer gate fetching by isLoading, allow refetching.
     setIsLoading(true);
@@ -376,6 +419,7 @@ export const App: React.FC = () => {
           role: MessageRole.USER,
           content: 'Analyzing the following image:',
           imageUrl: URL.createObjectURL(file),
+          operator: activeOperator
         });
         setMessages(prev => [...prev, {id: responseMessageId, role: MessageRole.MODEL, content: '...'}]);
     
@@ -399,29 +443,27 @@ export const App: React.FC = () => {
 
   const handleFeedback = async (messageId: string, feedback: 'like' | 'dislike') => {
       const message = messages.find(m => m.id === messageId);
-      if (!message) return;
+      if (!message || !message.client_message_id) return;
 
-      // Optimistic UI update for chat message
+      const clientMessageId = message.client_message_id;
+
+      // Optimistic UI update for all related messages
       setMessages(prev => prev.map(msg => 
-          msg.id === messageId ? { ...msg, feedback } : msg
+          msg.client_message_id === clientMessageId ? { ...msg, feedback } : msg
       ));
       
       // If it's an image, also update the gallery state
-      if (message.imageId) {
-          setGalleryImages(prev => prev.map(img =>
-              img.id === message.imageId ? { ...img, feedback } : img
-          ));
-      }
+      setGalleryImages(prev => prev.map(img =>
+          img.client_message_id === clientMessageId ? { ...img, feedback } : img
+      ));
 
       try {
-          await submitFeedback(messageId, feedback);
+          await submitFeedback(clientMessageId, feedback);
       } catch (error) {
           console.error("Failed to submit feedback", error);
           addMessage({ role: MessageRole.MODEL, content: 'Failed to save your feedback.', isError: true });
-          // Revert state on error by refetching gallery if it was an image
-          if (message.imageId) {
-            handleFetchGallery();
-          }
+          // Revert state on error by refetching gallery
+          handleFetchGallery();
       }
   };
 
@@ -456,7 +498,7 @@ export const App: React.FC = () => {
 
   const onToolSend = (message: string, file: File | null) => {
     switch (activeTool) {
-      case 'CHAT':
+      case 'AGENT_HUB':
       case 'CODE_GEN':
       case 'TEXT_GEN':
       case 'CODE_ANALYSIS':
@@ -481,15 +523,13 @@ export const App: React.FC = () => {
       case 'CONTENT_DETECTOR':
         if(file) handleDetectContentSafety(file);
         break;
-      case 'WEATHER':
-        handleGetWeather(message);
-        break;
       case 'LOCAL_VIEWER':
       case 'RAG_DB':
-        // Placeholder for future RAG functionality
+      case 'AUDIO_TO_MIDI':
+        // No-op, these tools have their own UI and don't use the main input.
         break;
       default:
-        handleStreamedGeneration('CHAT', message, file, {});
+        handleStreamedGeneration('AGENT_HUB', message, file, {});
     }
   };
 
@@ -499,9 +539,11 @@ export const App: React.FC = () => {
     } else if (tool === 'PERCHANCE_MIXER') {
         setRightPanelContent(rightPanelContent === 'PERCHANCE' ? null : 'PERCHANCE');
     } else if (tool === 'SUNO_MUSIC') {
-        window.open('https://suno.com/create', '_blank', 'noopener,noreferrer');
+        setRightPanelContent(rightPanelContent === 'SUNO' ? null : 'SUNO');
     } else if (tool === 'LINEAR') {
         window.open('https://linear.app/mythos-lia/project/mythos-dashboard-3a768abea8fa/overview', '_blank', 'noopener,noreferrer');
+    } else if (tool === 'COOM_BRIDGE') {
+        window.open('/mythos_consciousness_interface.html', '_blank', 'noopener,noreferrer');
     } else {
         setActiveTool(tool);
     }
@@ -514,6 +556,14 @@ export const App: React.FC = () => {
   const handleToggleTtsPanel = () => {
     setRightPanelContent(rightPanelContent === 'TTS' ? null : 'TTS');
   };
+  
+  const handleToggleAgentPanel = () => {
+    setRightPanelContent(rightPanelContent === 'AGENTS' ? null : 'AGENTS');
+  };
+  
+  const handleToggleOperatorPanel = () => {
+    setRightPanelContent(rightPanelContent === 'OPERATOR' ? null : 'OPERATOR');
+  };
 
   const handleOpenPerchanceWithParams = () => {
     const { description, negative, numImages, shape, Gscale, seed } = perchanceFormData;
@@ -524,12 +574,50 @@ export const App: React.FC = () => {
     if (description) params.append('description', description);
     if (negative) params.append('negative', negative);
     if (numImages) params.append('numImages', numImages);
-    if (shape) params.append('shape', shape.split('=')[1]?.trim() || '');
+    if (shape) params.append('shape', shape.split(' (')[0].toLowerCase() || 'landscape');
     if (Gscale) params.append('Gscale', Gscale);
     if (seed) params.append('seed', seed);
     
     const fullUrl = `${baseUrl}?${params.toString()}`;
     window.open(fullUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleOpenSunoWithParams = () => {
+    const { style, lyrics } = sunoFormData;
+    let fullPrompt = lyrics;
+    if (style) {
+      fullPrompt = `[Style: ${style}]\n\n${lyrics}`;
+    }
+    navigator.clipboard.writeText(fullPrompt.trim());
+    window.open('https://suno.com/create', '_blank', 'noopener,noreferrer');
+  };
+
+  const handleAnalyzeAudio = async (file: File) => {
+    try {
+        const style = await analyzeAudioForSunoStyle(file);
+        setSunoFormData(prev => ({...prev, style: style }));
+    } catch (error) {
+        console.error("Failed to analyze audio for Suno:", error);
+        addMessage({ role: MessageRole.MODEL, content: 'Failed to analyze audio style.', isError: true });
+    }
+  };
+
+  const handleGenerateSunoLyrics = async (topic: string, agentId: string) => {
+    try {
+        const reader = await generateSunoLyrics(topic, agentId);
+        const decoder = new TextDecoder();
+        setSunoFormData(prev => ({...prev, lyrics: ''})); // Clear existing lyrics
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+            setSunoFormData(prev => ({...prev, lyrics: prev.lyrics + chunk}));
+        }
+    } catch (error) {
+        console.error("Failed to generate Suno lyrics:", error);
+        addMessage({ role: MessageRole.MODEL, content: 'Failed to generate lyrics.', isError: true });
+    }
   };
 
   const handleInitiateEdit = (text: string) => {
@@ -546,6 +634,31 @@ export const App: React.FC = () => {
     }, 0);
   };
   
+  const handleAgentToggle = (agentId: string) => {
+    setActiveAgents(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(agentId)) {
+            newSet.delete(agentId);
+        } else {
+            newSet.add(agentId);
+        }
+        return newSet;
+    });
+  };
+
+  const handleToggleAllAgents = () => {
+    setActiveAgents(prev => {
+        if (prev.size === ALL_AGENTS.length) {
+            return new Set();
+        } else {
+            return new Set(ALL_AGENTS.map(a => a.id));
+        }
+    });
+  };
+
+  const isMainView = activeTool !== 'LOCAL_VIEWER' && activeTool !== 'RAG_DB' && activeTool !== 'AUDIO_TO_MIDI';
+  const showMessageInput = isMainView && rightPanelContent !== 'SUNO';
+
   return (
     <div className="flex flex-col h-screen bg-primary text-text-primary">
       <Header />
@@ -554,7 +667,7 @@ export const App: React.FC = () => {
         {/* Left Sidebar */}
         <aside className={`bg-secondary flex flex-col transition-all duration-300 ease-in-out ${isLeftSidebarCollapsed ? 'w-20' : 'w-64'}`}>
             <div className={`p-4 h-16 border-b border-accent flex items-center justify-between`}>
-                {!isLeftSidebarCollapsed && <h1 className="text-lg font-semibold text-text-primary">MYTHOS DASHBOARD</h1>}
+                {!isLeftSidebarCollapsed && <h1 className="text-lg font-semibold text-text-primary">MYTHOS</h1>}
                  <button 
                     onClick={() => setIsLeftSidebarCollapsed(!isLeftSidebarCollapsed)}
                     className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-accent transition-colors"
@@ -569,6 +682,8 @@ export const App: React.FC = () => {
                 onToolChange={handleToolChange}
                 onToggleGallery={handleToggleGallery}
                 onToggleTtsPanel={handleToggleTtsPanel}
+                onToggleAgentPanel={handleToggleAgentPanel}
+                onToggleOperatorPanel={handleToggleOperatorPanel}
                 isCollapsed={isLeftSidebarCollapsed}
                 rightPanelContent={rightPanelContent}
              />
@@ -577,8 +692,12 @@ export const App: React.FC = () => {
         {/* Main Content Pane */}
         <div className="flex flex-col flex-1 overflow-hidden">
           <main className="flex-1 overflow-hidden">
-            {activeTool === 'LOCAL_VIEWER' ? (
-              <LocalImageViewer />
+            {!isMainView ? (
+              <>
+                {activeTool === 'LOCAL_VIEWER' && <LocalImageViewer />}
+                {activeTool === 'RAG_DB' && <RagManager />}
+                {activeTool === 'AUDIO_TO_MIDI' && <AudioToMidiConverter />}
+              </>
             ) : (
               <div className="h-full overflow-y-auto p-4 md:p-6">
                 <div className="w-full space-y-8">
@@ -597,7 +716,7 @@ export const App: React.FC = () => {
               </div>
             )}
           </main>
-          {activeTool !== 'LOCAL_VIEWER' && (
+          {showMessageInput && (
               <footer className="p-4 md:p-6 border-t border-accent bg-secondary">
                 <MessageInput
                   input={input}
@@ -632,6 +751,16 @@ export const App: React.FC = () => {
                         onClose={() => setRightPanelContent(null)}
                     />
                 )}
+                {rightPanelContent === 'SUNO' && (
+                    <SunoPromptPanel
+                        formData={sunoFormData}
+                        setFormData={setSunoFormData}
+                        onGenerate={handleOpenSunoWithParams}
+                        onClose={() => setRightPanelContent(null)}
+                        onAnalyzeAudio={handleAnalyzeAudio}
+                        onGenerateLyrics={handleGenerateSunoLyrics}
+                    />
+                )}
                 {rightPanelContent === 'TTS' && (
                   <TtsPanel
                     ttsModels={TTS_MODELS}
@@ -642,6 +771,23 @@ export const App: React.FC = () => {
                     onVoiceChange={setSelectedVoice}
                     onClose={() => setRightPanelContent(null)}
                   />
+                )}
+                {rightPanelContent === 'AGENTS' && (
+                    <AgentPanel
+                        agents={ALL_AGENTS}
+                        activeAgents={activeAgents}
+                        onAgentToggle={handleAgentToggle}
+                        onToggleAll={handleToggleAllAgents}
+                        onClose={() => setRightPanelContent(null)}
+                    />
+                )}
+                {rightPanelContent === 'OPERATOR' && (
+                    <OperatorPanel
+                        operators={HITL_OPERATORS}
+                        activeOperator={activeOperator}
+                        onOperatorChange={setActiveOperator}
+                        onClose={() => setRightPanelContent(null)}
+                    />
                 )}
             </aside>
         )}

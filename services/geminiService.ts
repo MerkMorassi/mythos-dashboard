@@ -1,6 +1,7 @@
 
+
 import type { Part } from '@google/genai';
-import type { GalleryImage, LocalImage, Tool } from '../types';
+import type { GalleryImage, LocalImage, Tool, RagDocument } from '../types';
 
 const API_BASE_URL = 'http://localhost:3001/api';
 
@@ -10,7 +11,8 @@ export const fetchGenerationStream = async (
     prompt: string, 
     file: File | null, 
     history: any[], 
-    clientMessageId: string
+    clientMessageId: string,
+    activeAgents: string[]
 ) => {
   const formData = new FormData();
   formData.append('tool', tool);
@@ -19,8 +21,11 @@ export const fetchGenerationStream = async (
   if (file) {
       formData.append('file', file);
   }
-  if (tool === 'CHAT' && history) {
+  if (tool === 'AGENT_HUB' && history) {
       formData.append('history', JSON.stringify(history));
+  }
+  if (tool === 'AGENT_HUB' && activeAgents) {
+      formData.append('activeAgents', JSON.stringify(activeAgents));
   }
 
   const response = await fetch(`${API_BASE_URL}/generate-stream`, {
@@ -54,66 +59,10 @@ export async function submitFeedback(clientMessageId: string, feedback: 'like' |
     return response;
 }
 
-export async function generateCode(prompt: string, clientMessageId: string): Promise<string> {
-    const response = await fetch(`${API_BASE_URL}/generate-code`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, clientMessageId }),
-    });
-    if (!response.ok) throw new Error('Failed to generate code');
-    const data = await response.json();
-    return data.code;
-}
-
-export async function generateText(prompt: string, file: File | null, clientMessageId: string): Promise<string> {
-    const formData = new FormData();
-    formData.append('prompt', prompt);
-    formData.append('clientMessageId', clientMessageId);
-    if (file) {
-        formData.append('file', file);
-    }
-    const response = await fetch(`${API_BASE_URL}/generate-text`, {
-        method: 'POST',
-        body: formData,
-    });
-    if (!response.ok) throw new Error('Failed to generate text');
-    const data = await response.json();
-    return data.text;
-}
-
-export async function analyzeCode(prompt: string, file: File | null, clientMessageId: string): Promise<string> {
-    const formData = new FormData();
-    formData.append('prompt', prompt);
-    formData.append('clientMessageId', clientMessageId);
-    if (file) {
-        formData.append('file', file);
-    }
-    const response = await fetch(`${API_BASE_URL}/analyze-code`, {
-        method: 'POST',
-        body: formData,
-    });
-    if (!response.ok) throw new Error('Failed to analyze code');
-    const data = await response.json();
-    return data.text;
-}
-
 export async function fetchGallery(): Promise<GalleryImage[]> {
     const response = await fetch(`${API_BASE_URL}/gallery`);
     if (!response.ok) throw new Error('Failed to fetch gallery');
     return await response.json();
-}
-
-export async function summarizeDocument(file: File, clientMessageId: string): Promise<string> {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('clientMessageId', clientMessageId);
-    const response = await fetch(`${API_BASE_URL}/summarize-document`, {
-        method: 'POST',
-        body: formData,
-    });
-    if (!response.ok) throw new Error('Failed to summarize document');
-    const data = await response.json();
-    return data.summary;
 }
 
 export interface ContentSafetyResult {
@@ -203,47 +152,6 @@ export async function synthesizeSpeech(text: string, voiceId: string, ttsModelId
   return data.audioContent;
 }
 
-export async function processUrl(url: string, prompt: string, clientMessageId: string): Promise<string> {
-    const response = await fetch(`${API_BASE_URL}/process-url`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, prompt, clientMessageId }),
-    });
-    if (!response.ok) throw new Error('Failed to process URL');
-    const data = await response.json();
-    return data.text;
-}
-
-export async function analyzeAudio(file: File, clientMessageId: string): Promise<string> {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('clientMessageId', clientMessageId);
-    const response = await fetch(`${API_BASE_URL}/analyze-audio`, {
-        method: 'POST',
-        body: formData,
-    });
-    if (!response.ok) throw new Error('Failed to analyze audio');
-    const data = await response.json();
-    return data.transcript;
-}
-
-export interface WeatherResult {
-  location: string;
-  temperature: number;
-  unit: 'C' | 'F';
-  condition: string;
-  humidity: number;
-}
-export async function getWeather(location: string, clientMessageId: string): Promise<WeatherResult> {
-    const response = await fetch(`${API_BASE_URL}/get-weather`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ location, clientMessageId }),
-    });
-    if (!response.ok) throw new Error('Failed to get weather');
-    return response.json();
-}
-
 // --- Local Image Viewer Services ---
 
 export async function fetchLocalImages(): Promise<LocalImage[]> {
@@ -278,5 +186,69 @@ export async function analyzeLocalImage(id: number): Promise<LocalImage> {
         method: 'POST',
     });
     if (!response.ok) throw new Error('Failed to analyze image');
+    return await response.json();
+}
+
+// --- RAG Services ---
+export async function fetchRagDocuments(repository: string): Promise<RagDocument[]> {
+    const response = await fetch(`${API_BASE_URL}/rag-documents/${repository}`);
+    if (!response.ok) throw new Error('Failed to fetch RAG documents');
+    return await response.json();
+}
+
+export async function uploadRagDocument(repository: string, file: File): Promise<RagDocument> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await fetch(`${API_BASE_URL}/rag-documents/${repository}/upload`, {
+        method: 'POST',
+        body: formData,
+    });
+    if (!response.ok) throw new Error('Failed to upload RAG document');
+    return await response.json();
+}
+
+export async function deleteRagDocument(id: number): Promise<Response> {
+    const response = await fetch(`${API_BASE_URL}/rag-documents/${id}`, {
+        method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete RAG document');
+    return response;
+}
+
+// --- Suno Services ---
+export async function analyzeAudioForSunoStyle(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await fetch(`${API_BASE_URL}/analyze-audio-style`, {
+        method: 'POST',
+        body: formData,
+    });
+    if (!response.ok) throw new Error('Failed to analyze audio style');
+    const data = await response.json();
+    return data.style;
+}
+
+export async function generateSunoLyrics(topic: string, agentId: string): Promise<ReadableStreamDefaultReader<Uint8Array>> {
+    const response = await fetch(`${API_BASE_URL}/generate-suno-lyrics`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, agentId }),
+    });
+    if (!response.ok || !response.body) {
+        throw new Error('Failed to generate lyrics stream');
+    }
+    return response.body.getReader();
+}
+
+// --- Audio to MIDI Service ---
+export async function convertAudioToMidi(file: File, projectName: string): Promise<{ downloadUrl: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('projectName', projectName);
+    const response = await fetch(`${API_BASE_URL}/convert-audio-to-midi`, {
+        method: 'POST',
+        body: formData,
+    });
+    if (!response.ok) throw new Error('Failed to convert audio to MIDI');
     return await response.json();
 }
