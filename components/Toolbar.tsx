@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import type { Tool } from '../types';
 import AnalyzeIcon from './icons/AnalyzeIcon';
@@ -24,6 +22,7 @@ import LocalViewerIcon from './icons/LocalViewerIcon';
 import ChevronRightIcon from './icons/ChevronRightIcon';
 import OperatorIcon from './icons/OperatorIcon';
 import MidiIcon from './icons/MidiIcon';
+import SettingsIcon from './icons/SettingsIcon';
 
 interface ToolbarProps {
   activeTool: Tool;
@@ -32,8 +31,9 @@ interface ToolbarProps {
   onToggleTtsPanel: () => void;
   onToggleAgentPanel: () => void;
   onToggleOperatorPanel: () => void;
+  onToggleSettingsPanel: () => void;
   isCollapsed: boolean;
-  rightPanelContent: 'GALLERY' | 'PERCHANCE' | 'TTS' | 'AGENTS' | 'SUNO' | 'OPERATOR' | null;
+  rightPanelContent: 'GALLERY' | 'PERCHANCE' | 'TTS' | 'AGENTS' | 'SUNO' | 'OPERATOR' | 'SETTINGS' | null;
 }
 
 const ToolButton: React.FC<{
@@ -62,6 +62,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
     onToggleTtsPanel,
     onToggleAgentPanel,
     onToggleOperatorPanel,
+    onToggleSettingsPanel,
     isCollapsed,
     rightPanelContent
 }) => {
@@ -142,6 +143,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
         {renderToolGroup('System', 'system', <>
             <ToolButton label="Agents" isActive={rightPanelContent === 'AGENTS'} onClick={onToggleAgentPanel} isCollapsed={isCollapsed}><AgentHubIcon /></ToolButton>
             <ToolButton label="Operator" isActive={rightPanelContent === 'OPERATOR'} onClick={onToggleOperatorPanel} isCollapsed={isCollapsed}><OperatorIcon /></ToolButton>
+            <ToolButton label="Settings" isActive={rightPanelContent === 'SETTINGS'} onClick={onToggleSettingsPanel} isCollapsed={isCollapsed}><SettingsIcon /></ToolButton>
         </>)}
       </div>
     </div>

@@ -3,6 +3,7 @@
 import React from 'react';
 import type { VoiceOption, TtsModelOption } from '../types';
 import CloseIcon from './icons/CloseIcon';
+import VoiceCloningPanel from './VoiceCloningPanel';
 
 interface TtsPanelProps {
   ttsModels: readonly TtsModelOption[];
@@ -11,12 +12,13 @@ interface TtsPanelProps {
   voices: readonly VoiceOption[];
   selectedVoice: VoiceOption['id'];
   onVoiceChange: (voiceId: VoiceOption['id']) => void;
+  onCloneVoice: (name: string, blob: Blob) => Promise<void>;
   onClose: () => void;
 }
 
 const TtsPanel: React.FC<TtsPanelProps> = ({ 
   ttsModels, selectedTtsModel, onTtsModelChange, 
-  voices, selectedVoice, onVoiceChange, onClose 
+  voices, selectedVoice, onVoiceChange, onCloneVoice, onClose 
 }) => {
   return (
     <div className="w-full h-full bg-secondary flex flex-col">
@@ -55,7 +57,9 @@ const TtsPanel: React.FC<TtsPanelProps> = ({
             onChange={(e) => onVoiceChange(e.target.value as VoiceOption['id'])}
             className="w-full bg-accent text-text-primary rounded-lg p-2 border border-accent focus:ring-2 focus:ring-brand focus:outline-none"
             aria-label="Select a voice"
+            disabled={voices.length === 0}
           >
+            {voices.length === 0 && <option>No voices available</option>}
             {voices.map((voice) => (
               <option key={voice.id} value={voice.id}>
                 {voice.name}
@@ -63,6 +67,7 @@ const TtsPanel: React.FC<TtsPanelProps> = ({
             ))}
           </select>
         </div>
+        <VoiceCloningPanel onSave={onCloneVoice} />
       </div>
     </div>
   );

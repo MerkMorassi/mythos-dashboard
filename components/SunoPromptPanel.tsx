@@ -24,6 +24,8 @@ interface SunoPromptPanelProps {
   onGenerateLyrics: (topic: string, agentId: string) => Promise<void>;
 }
 
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
+
 const SunoPromptPanel: React.FC<SunoPromptPanelProps> = ({ 
     formData, setFormData, onGenerate, onClose, onAnalyzeAudio, onGenerateLyrics
 }) => {
@@ -64,6 +66,11 @@ const SunoPromptPanel: React.FC<SunoPromptPanelProps> = ({
   const handleAudioFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+        if (file.size > MAX_FILE_SIZE) {
+            alert(`Audio file is too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
+            e.target.value = '';
+            return;
+        }
         setIsAnalyzing(true);
         await onAnalyzeAudio(file);
         setIsAnalyzing(false);
@@ -73,6 +80,11 @@ const SunoPromptPanel: React.FC<SunoPromptPanelProps> = ({
   const handleLyricsFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+        if (file.size > MAX_FILE_SIZE) {
+            alert(`Lyrics file is too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
+            e.target.value = '';
+            return;
+        }
         const reader = new FileReader();
         reader.onload = (ev) => {
             const text = ev.target?.result as string;
@@ -104,6 +116,10 @@ const SunoPromptPanel: React.FC<SunoPromptPanelProps> = ({
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith('audio/')) {
+        if (file.size > MAX_FILE_SIZE) {
+            alert(`Audio file is too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
+            return;
+        }
         setIsAnalyzing(true);
         await onAnalyzeAudio(file);
         setIsAnalyzing(false);

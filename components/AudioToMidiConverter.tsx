@@ -1,8 +1,11 @@
 
+
 import React, { useState, useRef } from 'react';
 import { convertAudioToMidi } from '../services/geminiService';
 import UploadIcon from './icons/UploadIcon';
 import MidiIcon from './icons/MidiIcon';
+
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
 
 const AudioToMidiConverter: React.FC = () => {
     const [file, setFile] = useState<File | null>(null);
@@ -15,6 +18,15 @@ const AudioToMidiConverter: React.FC = () => {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
         if (selectedFile) {
+            if (selectedFile.size > MAX_FILE_SIZE) {
+                setError(`File is too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
+                setFile(null);
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+                return;
+            }
+            setError(null); // Clear errors on valid file selection
             setFile(selectedFile);
             setResultUrl(null); // Reset result on new file
         }

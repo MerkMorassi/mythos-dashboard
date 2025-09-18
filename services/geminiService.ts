@@ -1,9 +1,8 @@
-
-
+import { GoogleGenAI } from '@google/genai';
 import type { Part } from '@google/genai';
 import type { GalleryImage, LocalImage, Tool, RagDocument } from '../types';
 
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = '/api';
 
 // This function now initiates a stream from our OWN backend
 export const fetchGenerationStream = async (
@@ -151,6 +150,60 @@ export async function synthesizeSpeech(text: string, voiceId: string, ttsModelId
   }
   return data.audioContent;
 }
+
+// --- Client-Side Voice Data Preparation ---
+
+const getApiKey = (): string | null => {
+    try {
+        return localStorage.getItem('gemini-api-key');
+    } catch (e) {
+        console.error("Could not access localStorage:", e);
+        return null;
+    }
+};
+
+const fileToGenerativePart = async (file: File): Promise<Part> => {
+    const base64EncodedData = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(file);
+    });
+
+    return {
+        inlineData: {
+            data: base64EncodedData,
+            mimeType: file.type,
+        },
+    };
+};
+
+export async function transcribeAudioSample(file: File): Promise<string> {
+    const apiKey = getApiKey();
+    
+    if (!apiKey) {
+        const errorMessage = "Gemini API key not found. Please set it in the Settings panel.";
+        console.error(errorMessage);
+        return Promise.reject(new Error(errorMessage));
+    }
+    
+    try {
+        const ai = new GoogleGenAI({ apiKey });
+        const audioPart = await fileToGenerativePart(file);
+        const textPart = { text: "Transcribe this audio file accurately. The output should be only the transcribed text." };
+        
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: [audioPart, textPart] }
+        });
+        
+        return response.text.trim();
+    } catch (error) {
+        console.error("Error during client-side transcription:", error);
+        throw new Error("Failed to transcribe audio.");
+    }
+}
+
 
 // --- Local Image Viewer Services ---
 

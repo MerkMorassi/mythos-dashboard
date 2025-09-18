@@ -1,4 +1,3 @@
-
 # MYTHOS DASHBOARD
 
 Welcome to the MYTHOS DASHBOARD, a powerful, multi-tool AI assistant designed for creative and analytical tasks. This standalone, full-stack application leverages the Google Gemini API to provide a seamless interface for text generation, code analysis, image and video creation, and much more, all within a single, responsive dashboard.
@@ -52,17 +51,17 @@ npm install
 
 ### 3. Configure Environment Variables
 
-The backend server requires API keys and database connection details.
+The backend server requires API keys and database connection details. The frontend requires API keys to be available in its environment (e.g., through a Vite/Webpack setup, which is not part of this vanilla project, so they must be manually exposed if needed).
 
 1.  Create a new file named `.env` in the root directory.
 2.  Add your secret API keys and database credentials to this file. See the example below.
 
 ```
 # === API KEYS ===
-# Your secret Google Gemini API Key
+# Your secret Google Gemini API Key. Used by frontend and backend.
 API_KEY="AIzaSy...your...secret...key...here"
 
-# (Optional) Your ElevenLabs API key for additional TTS voices
+# (Optional) Your ElevenLabs API key for additional TTS voices. Used by backend.
 ELEVENLABS_API_KEY="your...elevenlabs...key...here"
 
 # === SERVER CONFIG ===

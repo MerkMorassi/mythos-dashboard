@@ -1,17 +1,69 @@
 
-import React from 'react';
-import type { Agent } from '../types';
+
+import React, { useState } from 'react';
+import type { Agent, TrainingSample } from '../types';
 import CloseIcon from './icons/CloseIcon';
+import GripVerticalIcon from './icons/GripVerticalIcon';
+import VoiceTrainIcon from './icons/VoiceTrainIcon';
 
 interface AgentPanelProps {
   agents: readonly Agent[];
+  allTrainingSamples: TrainingSample[];
+  onAgentsReorder: (reorderedAgents: readonly Agent[]) => void;
   activeAgents: Set<string>;
   onAgentToggle: (agentId: string) => void;
   onToggleAll: () => void;
   onClose: () => void;
+  onOpenVoiceModal: (agent: Agent) => void;
+  sortOrder: 'name' | 'specialty' | 'custom';
+  onSortOrderChange: (order: 'name' | 'specialty' | 'custom') => void;
 }
 
-const AgentPanel: React.FC<AgentPanelProps> = ({ agents, activeAgents, onAgentToggle, onToggleAll, onClose }) => {
+const AgentPanel: React.FC<AgentPanelProps> = ({ 
+  agents, allTrainingSamples, onAgentsReorder, activeAgents, onAgentToggle, onToggleAll, onClose, onOpenVoiceModal, sortOrder, onSortOrderChange 
+}) => {
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragEnter = (index: number) => {
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+  
+  const handleDrop = (dropIndex: number) => {
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      handleDragEnd();
+      return;
+    }
+
+    const reorderedAgents = [...agents];
+    const [draggedItem] = reorderedAgents.splice(draggedIndex, 1);
+    reorderedAgents.splice(dropIndex, 0, draggedItem);
+
+    onAgentsReorder(reorderedAgents);
+    onSortOrderChange('custom');
+    handleDragEnd();
+  };
+  
+  const getStatusIndicator = (agentId: string) => {
+    const hasSamples = allTrainingSamples.some(s => s.agent_id === agentId);
+    if (hasSamples) {
+        return <div className="w-2 h-2 rounded-full bg-green-500" title="Training Data Available"></div>;
+    }
+    return <div className="w-2 h-2 rounded-full bg-gray-500" title="No Training Data"></div>;
+  };
+
   return (
     <div className="w-full h-full bg-secondary flex flex-col">
       <div className="p-4 border-b border-accent flex justify-between items-center flex-shrink-0">
@@ -25,7 +77,7 @@ const AgentPanel: React.FC<AgentPanelProps> = ({ agents, activeAgents, onAgentTo
         </button>
       </div>
       <div className="flex-1 overflow-y-auto p-4">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-2">
             <div className="text-sm text-text-secondary">
                 Active: {activeAgents.size} / {agents.length}
             </div>
@@ -36,25 +88,91 @@ const AgentPanel: React.FC<AgentPanelProps> = ({ agents, activeAgents, onAgentTo
                 {activeAgents.size === agents.length ? 'Deselect All' : 'Select All'}
             </button>
         </div>
-        <div className="flex flex-col gap-2">
-            {agents.map(agent => {
+        
+        <div className="flex items-center gap-2 text-xs mb-4">
+            <span className="text-text-secondary font-semibold">SORT BY:</span>
+            <button
+                onClick={() => onSortOrderChange('name')}
+                className={`px-2 py-1 rounded transition-colors ${sortOrder === 'name' ? 'bg-brand text-white' : 'bg-accent text-text-secondary hover:bg-accent/70'}`}
+            >
+                Name
+            </button>
+            <button
+                onClick={() => onSortOrderChange('specialty')}
+                className={`px-2 py-1 rounded transition-colors ${sortOrder === 'specialty' ? 'bg-brand text-white' : 'bg-accent text-text-secondary hover:bg-accent/70'}`}
+            >
+                Specialty
+            </button>
+             <button
+                disabled
+                className={`px-2 py-1 rounded transition-colors ${sortOrder === 'custom' ? 'bg-brand text-white' : 'bg-accent text-text-secondary opacity-50 cursor-not-allowed'}`}
+            >
+                Custom
+            </button>
+        </div>
+
+        <div className="flex flex-col gap-2" onDragLeave={() => setDragOverIndex(null)}>
+            {agents.map((agent, index) => {
                 const isActive = activeAgents.has(agent.id);
+                const isDraggable = agent.id !== 'mythos_assistant';
+                const isBeingDragged = draggedIndex === index;
+                const isDragOver = dragOverIndex === index;
+
                 return (
                     <div
                         key={agent.id}
-                        onClick={() => onAgentToggle(agent.id)}
-                        className={`p-3 rounded-lg flex items-center gap-4 cursor-pointer transition-colors ${isActive ? 'bg-accent' : 'hover:bg-accent/50'}`}
+                        draggable={isDraggable}
+                        onDragStart={isDraggable ? (e) => handleDragStart(e, index) : undefined}
+                        onDragEnter={isDraggable ? () => handleDragEnter(index) : undefined}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={isDraggable ? () => handleDrop(index) : undefined}
+                        onDragEnd={isDraggable ? handleDragEnd : undefined}
+                        className={`p-2 rounded-lg flex items-center gap-2 transition-all duration-150 relative
+                            ${isActive ? 'bg-accent' : ''}
+                            ${isBeingDragged ? 'opacity-40' : 'hover:bg-accent/50'}
+                        `}
                     >
-                        <div className={`w-6 h-6 rounded-md flex items-center justify-center text-lg flex-shrink-0 ${isActive ? 'bg-brand text-white' : 'bg-primary'}`}>
-                            {agent.sigil}
+                        {isDragOver && <div className="absolute top-0 left-0 right-0 h-0.5 bg-brand-hover" />}
+                        
+                        {isDraggable ? (
+                            <div className="text-text-secondary cursor-grab touch-none p-1" onMouseDown={(e) => e.stopPropagation()}>
+                                <GripVerticalIcon />
+                            </div>
+                        ) : (
+                            <div className="w-8"></div> // Placeholder for alignment
+                        )}
+
+                        <div 
+                            className="flex-1 flex items-center gap-4 cursor-pointer"
+                            onClick={() => onAgentToggle(agent.id)}
+                        >
+                            <div className={`w-8 h-8 rounded-md flex items-center justify-center text-lg flex-shrink-0 ${isActive ? 'bg-brand text-white' : 'bg-primary'}`}>
+                                {agent.sigil}
+                            </div>
+                            <div className="flex-1">
+                                <div className="font-semibold text-text-primary flex items-center gap-2">
+                                    {agent.name}
+                                    {getStatusIndicator(agent.id)}
+                                </div>
+                                <div className="text-xs text-text-secondary">{agent.specialty}</div>
+                            </div>
                         </div>
-                        <div className="flex-1">
-                            <div className="font-semibold text-text-primary">{agent.name}</div>
-                            <div className="text-xs text-text-secondary">{agent.specialty}</div>
-                        </div>
-                        <div className={`w-5 h-5 rounded-sm border-2 flex items-center justify-center ${isActive ? 'bg-brand border-brand-hover' : 'border-accent'}`}>
+
+                        <button 
+                            onClick={() => onOpenVoiceModal(agent)}
+                            className="p-2 text-text-secondary hover:text-text-primary hover:bg-primary rounded-full"
+                            aria-label={`Prepare training data for ${agent.name}`}
+                        >
+                            <VoiceTrainIcon />
+                        </button>
+                        
+                        <div 
+                            onClick={() => onAgentToggle(agent.id)}
+                            className={`w-5 h-5 rounded-sm border-2 flex items-center justify-center cursor-pointer flex-shrink-0 mr-1 ${isActive ? 'bg-brand border-brand-hover' : 'border-accent'}`}
+                        >
                             {isActive && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
                         </div>
+
                     </div>
                 );
             })}

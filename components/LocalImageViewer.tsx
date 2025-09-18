@@ -6,6 +6,8 @@ import { fetchLocalImages, uploadLocalImages, deleteLocalImage, analyzeLocalImag
 import CloseIcon from './icons/CloseIcon';
 import AnalyzeIcon from './icons/AnalyzeIcon';
 
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
+
 const LocalImageViewer: React.FC = () => {
   const [images, setImages] = useState<LocalImage[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -38,11 +40,21 @@ const LocalImageViewer: React.FC = () => {
   const handleFiles = useCallback(async (files: FileList) => {
     const newImages = Array.from(files).filter(file => file.type.startsWith('image/'));
     if (newImages.length === 0) return;
+
+    const validFiles = newImages.filter(f => f.size <= MAX_FILE_SIZE);
+    const oversizedFiles = newImages.filter(f => f.size > MAX_FILE_SIZE);
+
+    if (oversizedFiles.length > 0) {
+        setError(`The following files are too large (max 100MB) and were not uploaded: ${oversizedFiles.map(f => f.name).join(', ')}`);
+    } else {
+        setError(null); // Clear previous errors if all files are valid
+    }
+    
+    if (validFiles.length === 0) return;
     
     try {
-      setError(null);
       setIsUploading(true);
-      await uploadLocalImages(newImages);
+      await uploadLocalImages(validFiles);
       await loadImages(); // Refresh the list
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to upload images.');

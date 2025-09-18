@@ -18,6 +18,8 @@ interface MessageInputProps {
   onGenerateVideoFromLastImage: (prompt: string) => void;
 }
 
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
+
 const MessageInput: React.FC<MessageInputProps> = ({ 
   input, setInput, onSend, isLoading, activeTool,
   isImageAvailableForVideo, onGenerateVideoFromLastImage
@@ -120,6 +122,11 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const handleImageFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile && (selectedFile.type === 'image/jpeg' || selectedFile.type === 'image/png')) {
+      if (selectedFile.size > MAX_FILE_SIZE) {
+        alert(`Image file is too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
+        event.target.value = '';
+        return;
+      }
       removeImageFile();
       setImageFile(selectedFile);
       setImagePreviewUrl(URL.createObjectURL(selectedFile));
@@ -132,6 +139,11 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const handleDocFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
+      if (selectedFile.size > MAX_FILE_SIZE) {
+        alert(`Document file is too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
+        event.target.value = '';
+        return;
+      }
       setDocFile(selectedFile);
       removeImageFile();
       removeAudioFile();
@@ -142,6 +154,11 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const handleAudioFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
+      if (selectedFile.size > MAX_FILE_SIZE) {
+        alert(`Audio file is too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
+        event.target.value = '';
+        return;
+      }
       setAudioFile(selectedFile);
       removeImageFile();
       removeDocFile();
@@ -293,7 +310,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
           </button>
         </div>
       )}
-      <div className="relative flex items-center">
+      <div className="flex items-end w-full bg-secondary rounded-lg border border-accent focus-within:ring-2 focus-within:ring-brand transition-shadow duration-200">
         <input
           type="file"
           ref={imageFileInputRef}
@@ -315,7 +332,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
           className="hidden"
           accept=".mp3,.wav"
         />
-        <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
+        <div className="flex items-center gap-1 pl-2 pb-2">
           {showCamera && <button
             onClick={() => imageFileInputRef.current?.click()}
             disabled={isLoading || !!docFile || !!audioFile}
@@ -358,10 +375,10 @@ const MessageInput: React.FC<MessageInputProps> = ({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           rows={1}
-          className="w-full bg-secondary text-text-primary placeholder-text-secondary rounded-lg p-4 pr-28 resize-none border border-accent focus:ring-2 focus:ring-brand focus:outline-none transition-shadow duration-200 pl-36"
+          className="w-full flex-1 bg-transparent text-text-primary placeholder-text-secondary py-4 px-2 resize-none focus:outline-none"
           disabled={isLoading || textInputDisabled}
         />
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center space-x-2">
+        <div className="flex items-center space-x-2 pr-2 pb-2">
            {activeTool === 'VIDEO_GEN' && isImageAvailableForVideo && (
             <button
               onClick={handleUseLastImage}

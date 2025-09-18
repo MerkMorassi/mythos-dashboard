@@ -7,6 +7,8 @@ import { fetchRagDocuments, uploadRagDocument, deleteRagDocument } from '../serv
 import CloseIcon from './icons/CloseIcon';
 import UploadIcon from './icons/UploadIcon';
 
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
+
 const RagManager: React.FC = () => {
     const [repository, setRepository] = useState('common');
     const [documents, setDocuments] = useState<RagDocument[]>([]);
@@ -49,7 +51,16 @@ const RagManager: React.FC = () => {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        if (file.size > MAX_FILE_SIZE) {
+            setError(`File is too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = ''; // Reset file input
+            }
+            return;
+        }
+
         setIsLoading(true);
+        setError(null);
         try {
             const newDoc = await uploadRagDocument(repository, file);
             setDocuments(prev => [newDoc, ...prev]); // Add to top of list

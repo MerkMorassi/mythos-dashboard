@@ -1,4 +1,3 @@
-
 # MYTHOS DASHBOARD - Installation Manual
 
 This guide provides detailed, step-by-step instructions for setting up, running, and deploying the MYTHOS DASHBOARD application.
@@ -88,10 +87,10 @@ The application uses a `.env` file to manage secret keys and configuration.
 
 ```
 # === API KEYS ===
-# Your secret Google Gemini API Key from Google AI Studio
+# Your secret Google Gemini API Key from Google AI Studio. Used by frontend and backend.
 API_KEY="AIzaSy...your...secret...key...here"
 
-# (Optional) Your ElevenLabs API key for additional TTS voices
+# (Optional) Your ElevenLabs API key for additional TTS voices. Used by the backend.
 ELEVENLABS_API_KEY="your...elevenlabs...key...here"
 
 # === SERVER CONFIG ===

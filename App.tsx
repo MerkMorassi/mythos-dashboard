@@ -1,10 +1,10 @@
 
-
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { Part } from '@google/genai';
 import { synthesizeSpeech, generateImageFromPrompt, generateVideo, checkVideoOperationStatus, fetchGallery, detectContentSafety, submitFeedback, fetchGenerationStream, analyzeImageOnBackend, generateVideoFromLastImage, analyzeAudioForSunoStyle, generateSunoLyrics, convertAudioToMidi } from './services/geminiService';
-import type { ChatMessage as Message, VoiceOption, Tool, TtsModelOption, GalleryImage, Agent } from './types';
-import { MessageRole, TTS_MODELS, STABLE_VOICES, PREVIEW_VOICES, ELEVENLABS_VOICES, MYTHOS_LIAS, ALL_AGENTS } from './types';
+import { initDB, getClonedVoices, addClonedVoice, getClonedVoiceBlob, getAllTrainingSamples, getFirstTrainingSampleBlob } from './services/dbService';
+import type { ChatMessage as Message, VoiceOption, Tool, TtsModelOption, GalleryImage, Agent, TrainingSample } from './types';
+import { MessageRole, TTS_MODELS, STABLE_VOICES, PREVIEW_VOICES, ELEVENLABS_VOICES, ALL_AGENTS } from './types';
 import ChatMessage from './components/ChatMessage';
 import MessageInput from './components/MessageInput';
 import Header from './components/Header';
@@ -23,6 +23,8 @@ import OperatorPanel from './components/OperatorPanel';
 import { HITL_OPERATORS } from './types';
 import type { Operator } from './types';
 import AudioToMidiConverter from './components/AudioToMidiConverter';
+import AgentVoiceModal from './components/AgentVoiceModal';
+import SettingsPanel from './components/SettingsPanel';
 
 const markdownToPlainText = (markdown: string): string => {
   if (!markdown) return '';
@@ -69,14 +71,23 @@ export const App: React.FC = () => {
   const [selectedTtsModel, setSelectedTtsModel] = useState<TtsModelOption['id']>(TTS_MODELS[0].id);
   const [availableVoices, setAvailableVoices] = useState<readonly VoiceOption[]>(STABLE_VOICES);
   const [selectedVoice, setSelectedVoice] = useState<VoiceOption['id']>(STABLE_VOICES[0].id);
+  const [clonedVoices, setClonedVoices] = useState<VoiceOption[]>([]);
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const [lastGeneratedImageFilename, setLastGeneratedImageFilename] = useState<string | null>(null);
   
   const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
-  const [rightPanelContent, setRightPanelContent] = useState<'GALLERY' | 'PERCHANCE' | 'TTS' | 'AGENTS' | 'SUNO' | 'OPERATOR' | null>('AGENTS');
+  const [rightPanelContent, setRightPanelContent] = useState<'GALLERY' | 'PERCHANCE' | 'TTS' | 'AGENTS' | 'SUNO' | 'OPERATOR' | 'SETTINGS' | null>('AGENTS');
   const [activeAgents, setActiveAgents] = useState<Set<string>>(() => new Set(['mythos_assistant']));
   const [activeOperator, setActiveOperator] = useState<Operator>(HITL_OPERATORS[0]);
+  const [agentSortOrder, setAgentSortOrder] = useState<'name' | 'specialty' | 'custom'>('name');
+  const [displayedAgents, setDisplayedAgents] = useState<readonly Agent[]>(ALL_AGENTS);
+  const [apiKey, setApiKey] = useState<string>('');
 
+  // Voice Training State (now client-side)
+  const [allTrainingSamples, setAllTrainingSamples] = useState<TrainingSample[]>([]);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [selectedAgentForVoice, setSelectedAgentForVoice] = useState<Agent | null>(null);
+  const [voiceDataLoaded, setVoiceDataLoaded] = useState(false);
 
   const [perchanceFormData, setPerchanceFormData] = useState({
     description: '',
@@ -101,6 +112,50 @@ export const App: React.FC = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    try {
+        const savedKey = localStorage.getItem('gemini-api-key');
+        if (savedKey) {
+            setApiKey(savedKey);
+        }
+    } catch (e) {
+        console.warn("Could not access localStorage to get API key.");
+    }
+  }, []);
+
+  const addMessage = useCallback((message: Omit<Message, 'id'>) => {
+    setMessages(prev => [...prev, { ...message, id: window.crypto.randomUUID() }]);
+  }, []);
+
+  const handleFetchVoiceData = useCallback(async (forceRefetch = false) => {
+    if (voiceDataLoaded && !forceRefetch) {
+      return;
+    }
+    try {
+      await initDB();
+      console.log("Fetching latest voice data from local DB...");
+
+      const [cloned, samples] = await Promise.all([
+          getClonedVoices(),
+          getAllTrainingSamples()
+      ]);
+
+      setClonedVoices(cloned);
+      setAllTrainingSamples(samples);
+      
+      if (!voiceDataLoaded) {
+        setVoiceDataLoaded(true);
+      }
+    } catch (error) {
+      console.error("Could not load voice data from local DB:", error);
+      addMessage({
+          role: MessageRole.MODEL,
+          content: `Custom voice features may be unavailable: Could not load data from local database.`,
+          isError: true,
+      });
+    }
+  }, [addMessage, voiceDataLoaded]);
   
   useEffect(() => {
     if (selectedTtsModel === 'text-to-speech') {
@@ -112,14 +167,53 @@ export const App: React.FC = () => {
     } else if (selectedTtsModel === 'eleven-labs') {
         setAvailableVoices(ELEVENLABS_VOICES);
         setSelectedVoice(ELEVENLABS_VOICES[0].id);
+    } else if (selectedTtsModel === 'cloned-voice') {
+        setAvailableVoices(clonedVoices);
+        if (clonedVoices.length > 0) {
+            setSelectedVoice(clonedVoices[0].id);
+        } else {
+            setSelectedVoice(''); // No voice available
+        }
+    } else if (selectedTtsModel === 'trained-voice') {
+        const agentIdsWithSamples = [...new Set(allTrainingSamples.map(s => s.agent_id))];
+        const trained = agentIdsWithSamples.map(agentId => {
+            const agent = ALL_AGENTS.find(a => a.id === agentId);
+            return { id: agentId, name: agent?.name || agentId };
+        });
+        
+        setAvailableVoices(trained);
+        if (trained.length > 0) {
+            setSelectedVoice(trained[0].id);
+        } else {
+            setSelectedVoice('');
+        }
     }
-  }, [selectedTtsModel]);
+  }, [selectedTtsModel, clonedVoices, allTrainingSamples]);
 
   useEffect(() => {
     if (rightPanelContent === 'GALLERY') {
       handleFetchGallery();
     }
   }, [rightPanelContent]);
+  
+  useEffect(() => {
+    // When the sort order changes (but not to custom), re-sort the agents.
+    if (agentSortOrder === 'custom') {
+      return;
+    }
+    const defaultAgent = ALL_AGENTS.find(a => a.id === 'mythos_assistant');
+    const sortableAgents = [...ALL_AGENTS].filter(a => a.id !== 'mythos_assistant');
+
+    sortableAgents.sort((a, b) => {
+      if (agentSortOrder === 'specialty') {
+        const specialtyCompare = a.specialty.localeCompare(b.specialty);
+        if (specialtyCompare !== 0) return specialtyCompare;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+    setDisplayedAgents(defaultAgent ? [defaultAgent, ...sortableAgents] : sortableAgents);
+  }, [agentSortOrder]);
   
   useEffect(() => {
     return () => {
@@ -129,53 +223,88 @@ export const App: React.FC = () => {
       }
     };
   }, []);
-
-  const addMessage = (message: Omit<Message, 'id'>) => {
-    setMessages(prev => [...prev, { ...message, id: crypto.randomUUID() }]);
-  };
   
   const handleSpeak = useCallback(async (message: Message) => {
     if (speakingMessageId === message.id) {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-      setSpeakingMessageId(null);
-      return;
+        if (audioRef.current) {
+            audioRef.current.pause();
+        }
+        setSpeakingMessageId(null);
+        return;
     }
-    
+
     if (audioRef.current) {
-      audioRef.current.pause();
+        audioRef.current.pause();
     }
 
     setSpeakingMessageId(message.id);
     try {
-      const plainText = markdownToPlainText(message.content);
-      const audioContent = await synthesizeSpeech(plainText, selectedVoice, selectedTtsModel);
-      const audioBlob = new Blob([Uint8Array.from(atob(audioContent), c => c.charCodeAt(0))], { type: 'audio/mpeg' });
-      const audioUrl = URL.createObjectURL(audioBlob);
-      
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-      
-      audio.onended = () => {
-        setSpeakingMessageId(null);
-        URL.revokeObjectURL(audioUrl);
-      };
+        const plainText = markdownToPlainText(message.content);
 
-      await audio.play();
+        if (selectedTtsModel === 'cloned-voice') {
+            if (!selectedVoice) throw new Error("No cloned voice selected.");
+            const audioBlob = await getClonedVoiceBlob(selectedVoice);
+            if (!audioBlob) {
+                throw new Error(`Cloned voice with ID ${selectedVoice} not found in local storage.`);
+            }
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            audioRef.current = audio;
+            
+            audio.onended = () => {
+              setSpeakingMessageId(null);
+              URL.revokeObjectURL(audioUrl);
+            };
+            await audio.play();
+            return;
+        }
+        
+        if (selectedTtsModel === 'trained-voice') {
+            if (!selectedVoice) throw new Error("No trained voice selected.");
+            const audioBlob = await getFirstTrainingSampleBlob(selectedVoice); // selectedVoice is agent_id
+            if (!audioBlob) {
+                throw new Error(`No training sample found for agent ID ${selectedVoice}.`);
+            }
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            audioRef.current = audio;
+            
+            audio.onended = () => {
+              setSpeakingMessageId(null);
+              URL.revokeObjectURL(audioUrl);
+            };
+            await audio.play();
+            return;
+        }
+      
+        // Original logic for server-side TTS
+        const audioContent = await synthesizeSpeech(plainText, selectedVoice, selectedTtsModel);
+        const audioBlob = new Blob([Uint8Array.from(atob(audioContent), c => c.charCodeAt(0))], { type: 'audio/mpeg' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+      
+        const audio = new Audio(audioUrl);
+        audioRef.current = audio;
+      
+        audio.onended = () => {
+            setSpeakingMessageId(null);
+            URL.revokeObjectURL(audioUrl);
+        };
+
+        await audio.play();
     } catch (error) {
-      console.error('Speech synthesis error:', error);
-      if (error instanceof Error && error.message.includes('interrupted')) {
-      } else {
-         addMessage({
-          role: MessageRole.MODEL,
-          content: `Sorry, I couldn't generate audio. Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          isError: true,
-        });
-      }
-      setSpeakingMessageId(null);
+        console.error('Speech synthesis error:', error);
+        if (error instanceof Error && error.message.includes('interrupted')) {
+            // Do nothing, this is expected if the user stops playback.
+        } else {
+            addMessage({
+                role: MessageRole.MODEL,
+                content: `Sorry, I couldn't generate audio. Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                isError: true,
+            });
+        }
+        setSpeakingMessageId(null);
     }
-  }, [speakingMessageId, selectedVoice, selectedTtsModel]);
+  }, [speakingMessageId, selectedVoice, selectedTtsModel, addMessage]);
 
   const handleStreamedGeneration = async (
       tool: Tool, 
@@ -195,7 +324,7 @@ export const App: React.FC = () => {
     }
 
     const userMessage: Message = { 
-        id: crypto.randomUUID(), 
+        id: window.crypto.randomUUID(), 
         role: MessageRole.USER, 
         content: finalUserMessageContent,
         operator: activeOperator,
@@ -224,7 +353,7 @@ export const App: React.FC = () => {
                  const agent = ALL_AGENTS.find(a => a.id === agentId);
                  if (!agent) continue;
                  
-                 const responseMessageId = crypto.randomUUID();
+                 const responseMessageId = window.crypto.randomUUID();
                  setMessages(prev => [...prev, { id: responseMessageId, role: MessageRole.MODEL, content: '...', agent: agent }]);
                  
                  const reader = await fetchGenerationStream(tool, userPrompt, file, currentHistory, responseMessageId, [agentId]);
@@ -252,7 +381,7 @@ export const App: React.FC = () => {
             }
 
         } else {
-             const responseMessageId = crypto.randomUUID();
+             const responseMessageId = window.crypto.randomUUID();
              const reader = await fetchGenerationStream(tool, userPrompt, file, currentHistory, responseMessageId, []);
              const decoder = new TextDecoder();
              let responseText = '';
@@ -294,7 +423,7 @@ export const App: React.FC = () => {
     addMessage({ role: MessageRole.USER, content: prompt, operator: activeOperator });
     setIsLoading(true);
     setLastGeneratedImageFilename(null);
-    const responseMessageId = crypto.randomUUID();
+    const responseMessageId = window.crypto.randomUUID();
     
     try {
         setMessages(prev => [...prev, { id: responseMessageId, role: MessageRole.MODEL, content: 'Generating image...' }]);
@@ -350,7 +479,7 @@ export const App: React.FC = () => {
   const handleGenerateVideo = async (prompt: string, imageFile: File | null) => {
     addMessage({ role: MessageRole.USER, content: prompt, operator: activeOperator, imageUrl: imageFile ? URL.createObjectURL(imageFile) : undefined });
     setIsLoading(true);
-    const responseMessageId = crypto.randomUUID();
+    const responseMessageId = window.crypto.randomUUID();
     setMessages(prev => [...prev, {id: responseMessageId, role: MessageRole.MODEL, content: '...'}]);
     await commonVideoGenerationHandler(generateVideo(prompt, imageFile || undefined, responseMessageId), prompt, imageFile ? URL.createObjectURL(imageFile) : undefined, responseMessageId);
   };
@@ -360,7 +489,7 @@ export const App: React.FC = () => {
     const imageUrl = `http://localhost:3001/uploads/${lastGeneratedImageFilename}`;
     addMessage({ role: MessageRole.USER, content: prompt, operator: activeOperator, imageUrl });
     setIsLoading(true);
-    const responseMessageId = crypto.randomUUID();
+    const responseMessageId = window.crypto.randomUUID();
     setMessages(prev => [...prev, {id: responseMessageId, role: MessageRole.MODEL, content: '...'}]);
     await commonVideoGenerationHandler(generateVideoFromLastImage(prompt, lastGeneratedImageFilename, responseMessageId), prompt, imageUrl, responseMessageId);
   };
@@ -368,7 +497,7 @@ export const App: React.FC = () => {
   const handleDetectContentSafety = async (file: File) => {
       addMessage({ role: MessageRole.USER, content: `Checking content safety for document:`, operator: activeOperator, fileName: file.name });
       setIsLoading(true);
-      const responseMessageId = crypto.randomUUID();
+      const responseMessageId = window.crypto.randomUUID();
       setMessages(prev => [...prev, {id: responseMessageId, role: MessageRole.MODEL, content: '...'}]);
       try {
           const result = await detectContentSafety(file, responseMessageId);
@@ -395,17 +524,17 @@ export const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [addMessage]);
 
   const handleAnalyzeImage = async (file: File) => {
     setIsLoading(true);
-    const responseMessageId = crypto.randomUUID();
+    const responseMessageId = window.crypto.randomUUID();
     
     const reader = new FileReader();
     reader.readAsArrayBuffer(file);
     reader.onload = async () => {
         const buffer = reader.result as ArrayBuffer;
-        const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', buffer);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         const imageHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
@@ -526,6 +655,7 @@ export const App: React.FC = () => {
       case 'LOCAL_VIEWER':
       case 'RAG_DB':
       case 'AUDIO_TO_MIDI':
+      case 'SETTINGS_PANEL':
         // No-op, these tools have their own UI and don't use the main input.
         break;
       default:
@@ -544,6 +674,8 @@ export const App: React.FC = () => {
         window.open('https://linear.app/mythos-lia/project/mythos-dashboard-3a768abea8fa/overview', '_blank', 'noopener,noreferrer');
     } else if (tool === 'COOM_BRIDGE') {
         window.open('/mythos_consciousness_interface.html', '_blank', 'noopener,noreferrer');
+    } else if (tool === 'SETTINGS_PANEL') {
+        setRightPanelContent(rightPanelContent === 'SETTINGS' ? null : 'SETTINGS');
     } else {
         setActiveTool(tool);
     }
@@ -554,15 +686,45 @@ export const App: React.FC = () => {
   };
   
   const handleToggleTtsPanel = () => {
+    // The check for rightPanelContent ensures we only fetch when OPENING the panel
+    if (rightPanelContent !== 'TTS') {
+        handleFetchVoiceData(false);
+    }
     setRightPanelContent(rightPanelContent === 'TTS' ? null : 'TTS');
   };
   
   const handleToggleAgentPanel = () => {
+    if (rightPanelContent !== 'AGENTS') {
+        handleFetchVoiceData(false);
+    }
     setRightPanelContent(rightPanelContent === 'AGENTS' ? null : 'AGENTS');
   };
   
   const handleToggleOperatorPanel = () => {
     setRightPanelContent(rightPanelContent === 'OPERATOR' ? null : 'OPERATOR');
+  };
+  
+  const handleToggleSettingsPanel = () => {
+    setRightPanelContent(rightPanelContent === 'SETTINGS' ? null : 'SETTINGS');
+  };
+
+  const handleApiKeySave = (key: string) => {
+    try {
+        setApiKey(key);
+        localStorage.setItem('gemini-api-key', key);
+        addMessage({
+            role: MessageRole.MODEL,
+            content: "API Key saved successfully to browser's local storage.",
+        });
+        setRightPanelContent(null); // Close panel on save
+    } catch (e) {
+        console.error("Could not save API key to local storage:", e);
+        addMessage({
+            role: MessageRole.MODEL,
+            content: "Error: Could not save API key. Your browser may be blocking local storage.",
+            isError: true,
+        });
+    }
   };
 
   const handleOpenPerchanceWithParams = () => {
@@ -656,6 +818,43 @@ export const App: React.FC = () => {
     });
   };
 
+  const handleCloneVoice = async (name: string, blob: Blob): Promise<void> => {
+    try {
+        const newVoiceId = window.crypto.randomUUID();
+        const newVoice = await addClonedVoice({ id: newVoiceId, name, blob });
+        
+        const updatedVoices = [...clonedVoices, newVoice];
+        setClonedVoices(updatedVoices);
+        
+        // UX: Switch to the new voice automatically
+        setSelectedTtsModel('cloned-voice');
+        // The useEffect for selectedTtsModel will handle setting available voices
+        setSelectedVoice(newVoice.id);
+
+        addMessage({
+            role: MessageRole.MODEL,
+            content: `New voice "${name}" has been cloned and is ready to use.`,
+        });
+    } catch (error) {
+        console.error("Failed to clone voice:", error);
+        addMessage({
+            role: MessageRole.MODEL,
+            content: `Sorry, there was an error saving the voice to the local database. ${error instanceof Error ? error.message : ''}`,
+            isError: true,
+        });
+    }
+  };
+
+  const handleOpenVoiceModal = (agent: Agent) => {
+    setSelectedAgentForVoice(agent);
+    setIsVoiceModalOpen(true);
+  };
+  
+  const handleCloseVoiceModal = () => {
+    setIsVoiceModalOpen(false);
+    setSelectedAgentForVoice(null);
+  };
+
   const isMainView = activeTool !== 'LOCAL_VIEWER' && activeTool !== 'RAG_DB' && activeTool !== 'AUDIO_TO_MIDI';
   const showMessageInput = isMainView && rightPanelContent !== 'SUNO';
 
@@ -684,14 +883,15 @@ export const App: React.FC = () => {
                 onToggleTtsPanel={handleToggleTtsPanel}
                 onToggleAgentPanel={handleToggleAgentPanel}
                 onToggleOperatorPanel={handleToggleOperatorPanel}
+                onToggleSettingsPanel={handleToggleSettingsPanel}
                 isCollapsed={isLeftSidebarCollapsed}
                 rightPanelContent={rightPanelContent}
              />
         </aside>
         
         {/* Main Content Pane */}
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <main className="flex-1 overflow-hidden">
+        <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+          <main className="flex-1 overflow-hidden min-h-0">
             {!isMainView ? (
               <>
                 {activeTool === 'LOCAL_VIEWER' && <LocalImageViewer />}
@@ -769,16 +969,22 @@ export const App: React.FC = () => {
                     voices={availableVoices}
                     selectedVoice={selectedVoice}
                     onVoiceChange={setSelectedVoice}
+                    onCloneVoice={handleCloneVoice}
                     onClose={() => setRightPanelContent(null)}
                   />
                 )}
                 {rightPanelContent === 'AGENTS' && (
                     <AgentPanel
-                        agents={ALL_AGENTS}
+                        agents={displayedAgents}
+                        allTrainingSamples={allTrainingSamples}
+                        onAgentsReorder={setDisplayedAgents}
                         activeAgents={activeAgents}
                         onAgentToggle={handleAgentToggle}
                         onToggleAll={handleToggleAllAgents}
                         onClose={() => setRightPanelContent(null)}
+                        onOpenVoiceModal={handleOpenVoiceModal}
+                        sortOrder={agentSortOrder}
+                        onSortOrderChange={setAgentSortOrder}
                     />
                 )}
                 {rightPanelContent === 'OPERATOR' && (
@@ -786,6 +992,13 @@ export const App: React.FC = () => {
                         operators={HITL_OPERATORS}
                         activeOperator={activeOperator}
                         onOperatorChange={setActiveOperator}
+                        onClose={() => setRightPanelContent(null)}
+                    />
+                )}
+                {rightPanelContent === 'SETTINGS' && (
+                    <SettingsPanel
+                        apiKey={apiKey}
+                        onApiKeySave={handleApiKeySave}
                         onClose={() => setRightPanelContent(null)}
                     />
                 )}
@@ -802,6 +1015,14 @@ export const App: React.FC = () => {
             onPrev={handlePrevImage}
             onNext={handleNextImage}
             onFeedback={handleFeedback}
+        />
+      )}
+      {/* Voice Training Modal */}
+      {isVoiceModalOpen && selectedAgentForVoice && (
+        <AgentVoiceModal
+            agent={selectedAgentForVoice}
+            onClose={handleCloseVoiceModal}
+            onDataUpdate={() => handleFetchVoiceData(true)}
         />
       )}
     </div>

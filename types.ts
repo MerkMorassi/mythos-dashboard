@@ -26,7 +26,8 @@ export const TOOLS = [
     'RAG_DB',
     'OPERATOR_PANEL',
     'COOM_BRIDGE',
-    'AUDIO_TO_MIDI'
+    'AUDIO_TO_MIDI',
+    'SETTINGS_PANEL'
 ] as const;
 export type Tool = typeof TOOLS[number];
 
@@ -51,20 +52,24 @@ export const HITL_OPERATORS: readonly Operator[] = [
 
 export const DEFAULT_AGENT: Agent = { id: 'mythos_assistant', name: 'Mythos Assistant', specialty: 'General Purpose', sigil: '⚙️' };
 
-export const MYTHOS_LIAS: readonly Agent[] = [
-    { id: 'sophia', name: 'Sophia', specialty: 'Philosophy & Wisdom', sigil: 'Θ' },
-    { id: 'barbelo', name: 'Barbelo', specialty: 'Divine Emanation', sigil: '✨' },
-    { id: 'shannon', name: 'Shannon', specialty: 'Information Theory', sigil: '📡' },
+const NINE_MUSES: readonly Agent[] = [
     { id: 'clio', name: 'Clio', specialty: 'History & Memory', sigil: '📜' },
-    { id: 'erato', name: 'Erato', specialty: 'Love & Poetry', sigil: '💜' },
-    { id: 'melpomene', name: 'Melpomene', specialty: 'Tragedy & Drama', sigil: '🎭' },
-    { id: 'polyhymnia', name: 'Polyhymnia', specialty: 'Sacred Hymns', sigil: '🎵' },
-    { id: 'terpsichore', name: 'Terpsichore', specialty: 'Dance & Movement', sigil: '💃' },
+    { id: 'euterpe', name: 'Euterpe', specialty: 'Music & Harmony', sigil: '🎶' },
     { id: 'thalia', name: 'Thalia', specialty: 'Comedy & Joy', sigil: '😄' },
+    { id: 'melpomene', name: 'Melpomene', specialty: 'Tragedy & Drama', sigil: '🎭' },
+    { id: 'terpsichore', name: 'Terpsichore', specialty: 'Dance & Movement', sigil: '💃' },
+    { id: 'erato', name: 'Erato', specialty: 'Love & Poetry', sigil: '💜' },
+    { id: 'polyhymnia', name: 'Polyhymnia', specialty: 'Sacred Hymns', sigil: '🎵' },
     { id: 'urania', name: 'Urania', specialty: 'Astronomy & Math', sigil: '🌟' },
     { id: 'calliope', name: 'Calliope', specialty: 'Epic Poetry', sigil: '📖' },
-    { id: 'euterpe', name: 'Euterpe', specialty: 'Music & Harmony', sigil: '🎶' },
-    { id: 'mnemosyne', name: 'Mnemosyne', specialty: 'Memory & Learning', sigil: '🧠' }
+];
+
+export const MYTHOS_LIAS: readonly Agent[] = [
+    ...NINE_MUSES,
+    { id: 'domantheia', name: 'Domantheia', specialty: 'Architecture & Structure', sigil: '🏛️' },
+    { id: 'sophia', name: 'Sophia', specialty: 'Philosophy & Wisdom', sigil: 'Θ' },
+    { id: 'noesis', name: 'Noesis', specialty: 'Intellect & Insight', sigil: '👁️' },
+    { id: 'barbelo', name: 'Barbelo', specialty: 'Divine Emanation', sigil: '✨' },
 ];
 
 export const ALL_AGENTS: readonly Agent[] = [DEFAULT_AGENT, ...MYTHOS_LIAS];
@@ -78,6 +83,8 @@ export const TTS_MODELS = [
     { id: 'text-to-speech', name: 'TTS Stable' },
     { id: 'gemini-2.5-flash-preview-tts', name: 'TTS Preview' },
     { id: 'eleven-labs', name: 'ElevenLabs' },
+    { id: 'cloned-voice', name: 'Cloned Voices' },
+    { id: 'trained-voice', name: 'Trained Voices' },
 ] as const;
 
 export type TtsModelOption = typeof TTS_MODELS[number];
@@ -103,8 +110,7 @@ export const ELEVENLABS_VOICES = [
     { id: 'Domi', name: 'Domi (Youthful)' },
 ] as const;
 
-
-export type VoiceOption = typeof STABLE_VOICES[number] | typeof PREVIEW_VOICES[number] | typeof ELEVENLABS_VOICES[number];
+export type VoiceOption = typeof STABLE_VOICES[number] | typeof PREVIEW_VOICES[number] | typeof ELEVENLABS_VOICES[number] | { id: string; name: string; };
 
 export interface ChatMessage {
   id: string;
@@ -148,6 +154,16 @@ export interface RagDocument {
     content: string;
     repository: string; // 'common' or agent_id
     created_at: string;
+}
+
+export interface TrainingSample {
+    id: number;
+    agent_id: string;
+    filename: string;
+    original_filename: string;
+    created_at: string;
+    blob: Blob;
+    transcript: string | null;
 }
 
 
