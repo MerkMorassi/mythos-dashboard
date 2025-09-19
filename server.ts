@@ -1,8 +1,11 @@
+// FIX: Add reference to node types to resolve issues with process, __dirname, and Buffer.
+/// <reference types="node" />
+
 import express from 'express';
-// FIX: Import Express request and response types with aliases to avoid global type conflicts.
-import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
+// FIX: Removed aliased express Request and Response types. Using express.Request and express.Response from the imported 'express' instance resolves global type conflicts (e.g., with DOM types for Request/Response).
 import cors from 'cors';
 import multer from 'multer';
+// Note: Multer's File type is available via the Express namespace after importing multer, so a direct import is not needed or possible.
 import path from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
@@ -113,7 +116,12 @@ const upload = multer({ storage });
 
 
 // --- GEMINI API SETUP ---
-const ai = new GoogleGenAI({apiKey: process.env.API_KEY || ''});
+const GEMINI_API_KEY = process.env.API_KEY;
+if (!GEMINI_API_KEY) {
+    console.error("FATAL ERROR: The API_KEY environment variable is not set. The server cannot start without it.");
+    process.exit(1);
+}
+const ai = new GoogleGenAI({apiKey: GEMINI_API_KEY});
 
 const safetySettings = [
     { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -122,6 +130,7 @@ const safetySettings = [
     { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
 ];
 
+// FIX: Use Express.Multer.File as the type for uploaded files. This type is available through namespace augmentation after importing multer.
 const fileToGenerativePart = (file: Express.Multer.File) => {
   return {
     inlineData: {
@@ -141,16 +150,20 @@ app.use('/local_uploads', express.static('local_uploads'));
 // --- API ROUTES ---
 const apiRouter = express.Router();
 
-// FIX: Use aliased types for request and response objects.
-apiRouter.post('/generate-stream', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
-    const { tool, prompt, clientMessageId, history, activeAgents } = req.body;
+// FIX: Use express.Request and express.Response for handler parameters to ensure correct typing.
+// FIX: Safely handle request body properties to ensure they are strings.
+apiRouter.post('/generate-stream', upload.single('file'), async (req: express.Request, res: express.Response) => {
+    const tool: string = req.body.tool || 'AGENT_HUB';
+    const prompt: string = req.body.prompt || '';
+    const history: string = req.body.history || '[]';
+    const activeAgents: string = req.body.activeAgents || '[]';
     const file = req.file;
     
     res.setHeader('Content-Type', 'text/plain');
 
     try {
-        const agents: Agent[] = activeAgents ? ALL_AGENTS.filter(a => JSON.parse(activeAgents).includes(a.id)) : [];
-        const parsedHistory = history ? JSON.parse(history) : [];
+        const agents: Agent[] = ALL_AGENTS.filter(a => JSON.parse(activeAgents).includes(a.id));
+        const parsedHistory = JSON.parse(history);
 
         const streamChunk = (chunk: string, agentId?: string) => {
             if (agentId) {
@@ -200,16 +213,28 @@ apiRouter.post('/generate-stream', upload.single('file'), async (req: ExpressReq
 });
 
 
-// FIX: Use aliased types for request and response objects.
-apiRouter.post('/generate-image', async (req: ExpressRequest, res: ExpressResponse) => {
-    const { prompt, clientMessageId } = req.body;
+// FIX: Use express.Request and express.Response for handler parameters to ensure correct typing.
+// FIX: Safely handle request body and API response to prevent type errors.
+apiRouter.post('/generate-image', async (req: express.Request, res: express.Response) => {
+    const prompt: string = req.body.prompt || '';
+    const clientMessageId: string = req.body.clientMessageId || '';
+
+    if (!prompt || !clientMessageId) {
+        return res.status(400).json({ error: 'Prompt and clientMessageId are required.' });
+    }
+
     try {
         const response = await ai.models.generateImages({
             model: 'imagen-4.0-generate-001',
             prompt,
         });
 
-        const image = response.generatedImages[0].image;
+        const firstImage = response.generatedImages?.[0];
+        if (!firstImage || !firstImage.image || !firstImage.image.imageBytes) {
+            throw new Error('Image generation failed: No image data received from API.');
+        }
+
+        const image = firstImage.image;
         const filename = `${clientMessageId}-${Date.now()}.png`;
         fs.writeFileSync(`uploads/${filename}`, Buffer.from(image.imageBytes, 'base64'));
 
@@ -217,6 +242,10 @@ apiRouter.post('/generate-image', async (req: ExpressRequest, res: ExpressRespon
             'INSERT INTO images (filename, prompt, client_message_id) VALUES ($1, $2, $3) RETURNING id',
             [filename, prompt, clientMessageId]
         );
+        
+        if (!dbResult.rows[0]) {
+             throw new Error('Failed to insert image record into database.');
+        }
 
         res.json({ imageUrl: `/uploads/${filename}`, filename, id: dbResult.rows[0].id });
     } catch (error) {
@@ -228,8 +257,8 @@ apiRouter.post('/generate-image', async (req: ExpressRequest, res: ExpressRespon
 // All other API routes... (gallery, feedback, video, etc.)
 // ... I will add the rest of the endpoints here based on the full application logic.
 
-// FIX: Use aliased types for request and response objects.
-apiRouter.get('/gallery', async (req: ExpressRequest, res: ExpressResponse) => {
+// FIX: Use express.Request and express.Response for handler parameters to ensure correct typing.
+apiRouter.get('/gallery', async (req: express.Request, res: express.Response) => {
     try {
         const result = await pool.query('SELECT * FROM images ORDER BY created_at DESC');
         res.json(result.rows);
@@ -239,9 +268,16 @@ apiRouter.get('/gallery', async (req: ExpressRequest, res: ExpressResponse) => {
     }
 });
 
-// FIX: Use aliased types for request and response objects.
-apiRouter.post('/feedback', async (req: ExpressRequest, res: ExpressResponse) => {
-    const { clientMessageId, feedback } = req.body;
+// FIX: Use express.Request and express.Response for handler parameters to ensure correct typing.
+// FIX: Safely handle request body properties.
+apiRouter.post('/feedback', async (req: express.Request, res: express.Response) => {
+    const clientMessageId: string = req.body.clientMessageId || '';
+    const feedback: string = req.body.feedback || '';
+    
+    if (!clientMessageId || !feedback) {
+        return res.status(400).json({ error: 'clientMessageId and feedback are required.' });
+    }
+
     try {
         await pool.query('UPDATE images SET feedback = $1 WHERE client_message_id = $2', [feedback, clientMessageId]);
         res.sendStatus(200);
@@ -254,8 +290,8 @@ apiRouter.post('/feedback', async (req: ExpressRequest, res: ExpressResponse) =>
 app.use('/api', apiRouter);
 
 // Fallback for client-side routing
-// FIX: Use aliased types for request and response objects.
-app.get('*', (req: ExpressRequest, res: ExpressResponse) => {
+// FIX: Use express.Request and express.Response for handler parameters to ensure correct typing.
+app.get('*', (req: express.Request, res: express.Response) => {
     if (!req.path.startsWith('/api/')) {
         res.sendFile(path.join(__dirname, '..', 'index.html'));
     } else {

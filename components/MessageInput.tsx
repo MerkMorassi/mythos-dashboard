@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { Tool, GalleryImage } from '../types';
 import SendIcon from './icons/SendIcon';
@@ -311,63 +310,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
         </div>
       )}
       <div className="flex items-end w-full bg-secondary rounded-lg border border-accent focus-within:ring-2 focus-within:ring-brand transition-shadow duration-200">
-        <input
-          type="file"
-          ref={imageFileInputRef}
-          onChange={handleImageFileChange}
-          className="hidden"
-          accept="image/jpeg, image/png"
-        />
-        <input
-          type="file"
-          ref={docFileInputRef}
-          onChange={handleDocFileChange}
-          className="hidden"
-          accept=".txt,.md,.pdf,.js,.ts,.py,.html,.css,.json"
-        />
-        <input
-          type="file"
-          ref={audioFileInputRef}
-          onChange={handleAudioFileChange}
-          className="hidden"
-          accept=".mp3,.wav"
-        />
-        <div className="flex items-center gap-1 pl-2 pb-2">
-          {showCamera && <button
-            onClick={() => imageFileInputRef.current?.click()}
-            disabled={isLoading || !!docFile || !!audioFile}
-            className="p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-            aria-label="Upload image"
-          >
-            <CameraIcon />
-          </button>}
-          {showPaperclip && <button
-            onClick={() => docFileInputRef.current?.click()}
-            disabled={isLoading || !!imageFile || !!audioFile}
-            className="p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-            aria-label="Upload document"
-          >
-            <PaperclipIcon />
-          </button>}
-          {showAudioUpload && <button
-            onClick={() => audioFileInputRef.current?.click()}
-            disabled={isLoading || !!imageFile || !!docFile}
-            className="p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-            aria-label="Upload audio"
-          >
-            <AudioIcon />
-          </button>}
-          {isSpeechSupported && (
-          <button
-              onClick={handleToggleRecording}
-              disabled={isLoading}
-              className={`p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 ${isRecording ? 'text-text-primary' : ''}`}
-              aria-label={isRecording ? 'Stop recording' : 'Start recording'}
-              >
-              {isRecording ? <StopCircleIcon /> : <MicrophoneIcon />}
-              </button>
-          )}
-        </div>
         <textarea
           ref={textareaRef}
           value={input}
@@ -375,7 +317,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           rows={1}
-          className="w-full flex-1 bg-transparent text-text-primary placeholder-text-secondary py-4 px-2 resize-none focus:outline-none"
+          className="w-full flex-1 bg-transparent text-text-primary placeholder-text-secondary py-4 px-4 resize-none focus:outline-none"
           disabled={isLoading || textInputDisabled}
         />
         <div className="flex items-center space-x-2 pr-2 pb-2">
@@ -404,6 +346,69 @@ const MessageInput: React.FC<MessageInputProps> = ({
           </button>
         </div>
       </div>
+
+      <div className="flex items-center justify-between mt-2">
+        <div className="flex items-center gap-1">
+          {showCamera && <button
+            onClick={() => imageFileInputRef.current?.click()}
+            disabled={isLoading || !!docFile || !!audioFile}
+            className="p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+            aria-label="Upload image"
+          >
+            <CameraIcon />
+          </button>}
+          {showPaperclip && <button
+            onClick={() => docFileInputRef.current?.click()}
+            disabled={isLoading || !!imageFile || !!audioFile}
+            className="p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+            aria-label="Upload document"
+          >
+            <PaperclipIcon />
+          </button>}
+          {showAudioUpload && <button
+            onClick={() => audioFileInputRef.current?.click()}
+            disabled={isLoading || !!imageFile || !!docFile}
+            className="p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+            aria-label="Upload audio"
+          >
+            <AudioIcon />
+          </button>}
+        </div>
+
+        {isSpeechSupported && (
+          <button
+              onClick={handleToggleRecording}
+              disabled={isLoading}
+              className={`flex items-center gap-2 p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 ${isRecording ? 'text-red-400' : ''}`}
+              aria-label={isRecording ? 'Stop recording' : 'Start recording'}
+              >
+              {isRecording ? <StopCircleIcon /> : <MicrophoneIcon />}
+              {isRecording && <span className="text-xs text-red-400 animate-pulse">Recording...</span>}
+          </button>
+        )}
+      </div>
+
+      <input
+          type="file"
+          ref={imageFileInputRef}
+          onChange={handleImageFileChange}
+          className="hidden"
+          accept="image/jpeg, image/png"
+        />
+        <input
+          type="file"
+          ref={docFileInputRef}
+          onChange={handleDocFileChange}
+          className="hidden"
+          accept=".txt,.md,.pdf,.js,.ts,.py,.html,.css,.json"
+        />
+        <input
+          type="file"
+          ref={audioFileInputRef}
+          onChange={handleAudioFileChange}
+          className="hidden"
+          accept=".mp3,.wav"
+        />
     </div>
   );
 };
