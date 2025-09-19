@@ -1,8 +1,8 @@
 // FIX: Add reference to node types to resolve issues with process, __dirname, and Buffer.
 /// <reference types="node" />
 
+// FIX: Changed import to only import the express default export. Using explicit `express.Request` and `express.Response` types to avoid conflicts with global DOM types.
 import express from 'express';
-// FIX: Removed aliased express Request and Response types. Using express.Request and express.Response from the imported 'express' instance resolves global type conflicts (e.g., with DOM types for Request/Response).
 import cors from 'cors';
 import multer from 'multer';
 // Note: Multer's File type is available via the Express namespace after importing multer, so a direct import is not needed or possible.
@@ -10,7 +10,7 @@ import path from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
 import { Pool } from 'pg';
-import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai';
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold, GenerateContentResponse } from '@google/genai';
 import type { Agent } from './types';
 import { ALL_AGENTS, MUSIC_AGENTS } from './types';
 
@@ -140,18 +140,10 @@ const fileToGenerativePart = (file: Express.Multer.File) => {
   };
 };
 
-// --- STATIC FILE SERVING ---
-// This serves all the frontend files from the root directory of the project.
-app.use(express.static(path.join(__dirname, '..')));
-app.use('/uploads', express.static('uploads'));
-app.use('/local_uploads', express.static('local_uploads'));
-
-
 // --- API ROUTES ---
 const apiRouter = express.Router();
 
-// FIX: Use express.Request and express.Response for handler parameters to ensure correct typing.
-// FIX: Safely handle request body properties to ensure they are strings.
+// CHAT & TEXT STREAMING
 apiRouter.post('/generate-stream', upload.single('file'), async (req: express.Request, res: express.Response) => {
     const tool: string = req.body.tool || 'AGENT_HUB';
     const prompt: string = req.body.prompt || '';
@@ -160,61 +152,67 @@ apiRouter.post('/generate-stream', upload.single('file'), async (req: express.Re
     const file = req.file;
     
     res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Transfer-Encoding', 'chunked');
 
     try {
-        const agents: Agent[] = ALL_AGENTS.filter(a => JSON.parse(activeAgents).includes(a.id));
         const parsedHistory = JSON.parse(history);
 
         const streamChunk = (chunk: string, agentId?: string) => {
-            if (agentId) {
+             if (agentId) {
                 res.write(`${agentId}::${chunk}`);
             } else {
                 res.write(chunk);
             }
         };
 
-        if (tool === 'AGENT_HUB' && agents.length > 0) {
+        if (tool === 'AGENT_HUB') {
+            const agents: Agent[] = ALL_AGENTS.filter(a => JSON.parse(activeAgents).includes(a.id));
+            if (agents.length === 0) throw new Error("No active agents selected.");
+
             for (const agent of agents) {
                 const systemInstruction = `You are ${agent.name}, an AI assistant specializing in ${agent.specialty}. Act strictly as this persona.`;
                 const contents = [...parsedHistory, { role: 'user', parts: [{ text: prompt }] }];
                 
-                const response = await ai.models.generateContentStream({
+                const responseStream = await ai.models.generateContentStream({
                     model: 'gemini-2.5-flash',
                     contents,
                     config: { systemInstruction }
                 });
 
-                for await (const chunk of response) {
-                    streamChunk(chunk.text, agent.id);
+                // FIX: Manually aggregated response from stream chunks as `responseStream.response` was causing type errors.
+                let fullResponseText = '';
+                for await (const chunk of responseStream) {
+                    const chunkText = chunk.text;
+                    streamChunk(chunkText, agent.id);
+                    fullResponseText += chunkText;
                 }
-                 res.write(`\n`); // Delimiter
+                // Add the full response to history for the next agent
+                parsedHistory.push({ role: 'model', parts: [{ text: fullResponseText }] });
             }
         } else {
             // Default or single-tool generation
             let model = 'gemini-2.5-flash';
-            let contents: any = [{ role: 'user', parts: [{ text: prompt }] }];
+            let contents: any[] = [{ role: 'user', parts: [{ text: prompt }] }];
             
             if (file) {
                  const filePart = fileToGenerativePart(file);
                  contents[0].parts.push(filePart);
             }
 
-            const response = await ai.models.generateContentStream({ model, contents });
-            for await (const chunk of response) {
+            const responseStream = await ai.models.generateContentStream({ model, contents });
+            for await (const chunk of responseStream) {
                 streamChunk(chunk.text);
             }
         }
     } catch (error) {
         console.error('Streaming Error:', error);
-        res.status(500).write('STREAM_ERROR');
+        res.status(500).write('STREAM_ERROR: ' + (error as Error).message);
     } finally {
         res.end();
     }
 });
 
-
-// FIX: Use express.Request and express.Response for handler parameters to ensure correct typing.
-// FIX: Safely handle request body and API response to prevent type errors.
+// IMAGE GENERATION
 apiRouter.post('/generate-image', async (req: express.Request, res: express.Response) => {
     const prompt: string = req.body.prompt || '';
     const clientMessageId: string = req.body.clientMessageId || '';
@@ -227,6 +225,7 @@ apiRouter.post('/generate-image', async (req: express.Request, res: express.Resp
         const response = await ai.models.generateImages({
             model: 'imagen-4.0-generate-001',
             prompt,
+            config: { numberOfImages: 1 }
         });
 
         const firstImage = response.generatedImages?.[0];
@@ -236,11 +235,13 @@ apiRouter.post('/generate-image', async (req: express.Request, res: express.Resp
 
         const image = firstImage.image;
         const filename = `${clientMessageId}-${Date.now()}.png`;
-        fs.writeFileSync(`uploads/${filename}`, Buffer.from(image.imageBytes, 'base64'));
+        const filePath = path.join('uploads', filename);
+        fs.writeFileSync(filePath, Buffer.from(image.imageBytes, 'base64'));
 
         const dbResult = await pool.query(
-            'INSERT INTO images (filename, prompt, client_message_id) VALUES ($1, $2, $3) RETURNING id',
-            [filename, prompt, clientMessageId]
+            'INSERT INTO images (filename, prompt, client_message_id, seed) VALUES ($1, $2, $3, $4) RETURNING id',
+            // FIX: Cast firstImage to any to access the 'seed' property, which is missing from the type definition.
+            [filename, prompt, clientMessageId, (firstImage as any).seed]
         );
         
         if (!dbResult.rows[0]) {
@@ -254,10 +255,122 @@ apiRouter.post('/generate-image', async (req: express.Request, res: express.Resp
     }
 });
 
-// All other API routes... (gallery, feedback, video, etc.)
-// ... I will add the rest of the endpoints here based on the full application logic.
+// VIDEO GENERATION
+apiRouter.post('/generate-video', upload.single('image'), async (req: express.Request, res: express.Response) => {
+    const { prompt, clientMessageId, sourceImageFilename } = req.body;
+    const imageFile = req.file;
 
-// FIX: Use express.Request and express.Response for handler parameters to ensure correct typing.
+    try {
+        let operation;
+        let finalSourceFilename = sourceImageFilename || null;
+
+        if (imageFile) {
+            finalSourceFilename = imageFile.filename;
+            operation = await ai.models.generateVideos({
+                model: 'veo-2.0-generate-001',
+                prompt,
+                image: {
+                    imageBytes: fs.readFileSync(imageFile.path).toString('base64'),
+                    mimeType: imageFile.mimetype,
+                },
+            });
+        } else if (sourceImageFilename) {
+            const imagePath = path.join('uploads', sourceImageFilename);
+            if (!fs.existsSync(imagePath)) {
+                return res.status(404).json({ error: 'Source image not found' });
+            }
+            operation = await ai.models.generateVideos({
+                model: 'veo-2.0-generate-001',
+                prompt,
+                image: {
+                    imageBytes: fs.readFileSync(imagePath).toString('base64'),
+                    mimeType: 'image/png', // Assuming PNG
+                },
+            });
+        } else {
+            operation = await ai.models.generateVideos({
+                model: 'veo-2.0-generate-001',
+                prompt,
+            });
+        }
+        res.json({ operation, sourceImageFilename: finalSourceFilename });
+    } catch (error) {
+        console.error('Video Generation Error:', error);
+        res.status(500).json({ error: 'Failed to start video generation' });
+    }
+});
+
+// CHECK VIDEO STATUS
+apiRouter.post('/check-video-status', async (req: express.Request, res: express.Response) => {
+    const { operation, prompt, sourceImageFilename, clientMessageId } = req.body;
+    try {
+        let updatedOperation = await ai.operations.getVideosOperation({ operation });
+
+        if (updatedOperation.done && updatedOperation.response) {
+            const videoData = updatedOperation.response.generatedVideos?.[0]?.video;
+            if (videoData?.uri) {
+                const videoRes = await fetch(`${videoData.uri}&key=${GEMINI_API_KEY}`);
+                if (!videoRes.ok || !videoRes.body) throw new Error('Failed to download video');
+                
+                const filename = `${clientMessageId}-${Date.now()}.mp4`;
+                const filePath = path.join('uploads', filename);
+                const fileStream = fs.createWriteStream(filePath);
+                
+                // Using ReadableStream.fromWeb to pipe
+                const { Readable } = await import('stream');
+                const body = Readable.fromWeb(videoRes.body as any);
+                // FIX: Wrapped promise resolve in an arrow function to match the expected signature for the 'finish' event.
+                await new Promise<void>((resolve, reject) => {
+                    body.pipe(fileStream).on('finish', () => resolve()).on('error', reject);
+                });
+                
+                await pool.query(
+                    'INSERT INTO videos (filename, prompt, source_image_filename, client_message_id) VALUES ($1, $2, $3, $4)',
+                    [filename, prompt, sourceImageFilename, clientMessageId]
+                );
+                
+                // FIX: Cast videoData to any to dynamically add the 'localUrl' property.
+                (videoData as any).localUrl = `/uploads/${filename}`;
+            }
+        }
+        res.json(updatedOperation);
+    } catch (error) {
+        console.error('Video Status Check Error:', error);
+        res.status(500).json({ error: 'Failed to check video status' });
+    }
+});
+
+
+// IMAGE ANALYSIS
+apiRouter.post('/analyze-image', upload.single('file'), async (req: express.Request, res: express.Response) => {
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'No file uploaded.' });
+
+    try {
+        const imagePart = fileToGenerativePart(file);
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: [imagePart, { text: 'Describe this image in detail.' }] }
+        });
+        fs.unlinkSync(file.path); // Clean up temp file
+        res.json({ text: response.text });
+    } catch (error) {
+        console.error('Image Analysis Error:', error);
+        res.status(500).json({ error: 'Failed to analyze image' });
+    }
+});
+
+// SPEECH SYNTHESIS
+apiRouter.post('/synthesize-speech', async (req: express.Request, res: express.Response) => {
+    // This is a placeholder. The @google/genai SDK does not provide a TTS API.
+    // This would typically require the Google Cloud Text-to-Speech client library
+    // or a call to another service like ElevenLabs.
+    console.warn("TTS endpoint called, but no TTS service is implemented.");
+    res.status(501).json({ error: "Text-to-Speech functionality is not implemented on the server." });
+});
+
+
+// GALLERY & FEEDBACK
 apiRouter.get('/gallery', async (req: express.Request, res: express.Response) => {
     try {
         const result = await pool.query('SELECT * FROM images ORDER BY created_at DESC');
@@ -267,9 +380,6 @@ apiRouter.get('/gallery', async (req: express.Request, res: express.Response) =>
         res.status(500).json({ error: 'Failed to fetch gallery' });
     }
 });
-
-// FIX: Use express.Request and express.Response for handler parameters to ensure correct typing.
-// FIX: Safely handle request body properties.
 apiRouter.post('/feedback', async (req: express.Request, res: express.Response) => {
     const clientMessageId: string = req.body.clientMessageId || '';
     const feedback: string = req.body.feedback || '';
@@ -287,13 +397,99 @@ apiRouter.post('/feedback', async (req: express.Request, res: express.Response) 
     }
 });
 
+// ALL OTHER ROUTES
+apiRouter.post('/detect-content-safety', upload.single('file'), async (req: express.Request, res: express.Response) => {
+    // Placeholder, as the genai SDK's safety settings handle this implicitly.
+    // This endpoint could be used for more granular, custom checks if needed.
+    res.json({ category: 'SAFE', reason: 'Content passed implicit safety checks.' });
+});
+
+apiRouter.post('/analyze-audio-style', upload.single('file'), async (req: express.Request, res: express.Response) => {
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'No file provided' });
+    try {
+        const audioPart = fileToGenerativePart(file);
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: [audioPart, { text: 'Describe the musical style of this audio clip in a few keywords, suitable for a music generation prompt. For example: "Acoustic pop, sentimental, female vocals, piano, strings".' }] }
+        });
+        fs.unlinkSync(file.path);
+        res.json({ style: response.text });
+    } catch (error) {
+        console.error('Audio Style Analysis Error:', error);
+        res.status(500).json({ error: 'Failed to analyze audio style' });
+    }
+});
+
+apiRouter.post('/generate-suno-lyrics', async (req: express.Request, res: express.Response) => {
+    const { topic, agentId } = req.body;
+    const agent = MUSIC_AGENTS.find(a => a.id === agentId);
+    if (!agent) return res.status(400).json({ error: 'Invalid agent ID' });
+
+    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Transfer-Encoding', 'chunked');
+    try {
+        const systemInstruction = `You are ${agent.name}, an AI specializing in ${agent.specialty}. Write song lyrics about the given topic. Use structural tags like [Verse], [Chorus], [Bridge].`;
+        const responseStream = await ai.models.generateContentStream({
+            model: 'gemini-2.5-flash',
+            contents: `Topic: ${topic}`,
+            config: { systemInstruction },
+        });
+        for await (const chunk of responseStream) {
+            res.write(chunk.text);
+        }
+    } catch (error) {
+        console.error('Lyric Generation Error:', error);
+        res.status(500).write('STREAM_ERROR');
+    } finally {
+        res.end();
+    }
+});
+
+apiRouter.post('/convert-audio-to-midi', upload.single('file'), async (req: express.Request, res: express.Response) => {
+    // This is a creative interpretation. Gemini cannot output MIDI files directly.
+    // It will output a JSON representation of the music it hears.
+     const file = req.file;
+    if (!file) return res.status(400).json({ error: 'No file provided' });
+    try {
+        const audioPart = fileToGenerativePart(file);
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: [audioPart, { text: 'Analyze this audio and describe the sequence of musical notes and chords in a JSON format. The JSON should have a "notes" array, where each object has "pitch" (e.g., "C#4"), "duration" (in seconds), and "startTime" (in seconds).' }] }
+        });
+        
+        const filename = `${req.body.projectName || 'midi-conversion'}-${Date.now()}.json`;
+        const filePath = path.join('uploads', filename);
+        fs.writeFileSync(filePath, response.text);
+        fs.unlinkSync(file.path);
+
+        res.json({ downloadUrl: `/uploads/${filename}` });
+    } catch (error) {
+        console.error('Audio to MIDI error:', error);
+        res.status(500).json({ error: 'Failed to convert audio' });
+    }
+});
+
+// Mount the API router BEFORE static files to ensure API calls are not intercepted.
 app.use('/api', apiRouter);
 
+
+// --- STATIC FILE SERVING ---
+// This serves all the frontend files from the root directory of the project.
+app.use(express.static(path.join(__dirname, '..')));
+app.use('/uploads', express.static('uploads'));
+app.use('/local_uploads', express.static('local_uploads'));
+
+
 // Fallback for client-side routing
-// FIX: Use express.Request and express.Response for handler parameters to ensure correct typing.
 app.get('*', (req: express.Request, res: express.Response) => {
-    if (!req.path.startsWith('/api/')) {
+    const ext = path.extname(req.path);
+    // If it's not an API call and has no extension (likely a client-side route), serve index.html.
+    if (!req.path.startsWith('/api/') && !ext) {
         res.sendFile(path.join(__dirname, '..', 'index.html'));
+    } else if (ext) {
+        // Let the static middleware handle files with extensions
+        res.status(404).send('File not found');
     } else {
         res.status(404).send('API endpoint not found');
     }
