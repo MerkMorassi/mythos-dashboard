@@ -61,7 +61,7 @@ cd mythos-dashboard
 
 ### Step 2.2: Install Dependencies
 
-Install all the required packages for both the server and the client:
+Install all the required packages for the server:
 ```bash
 npm install
 ```
@@ -87,7 +87,7 @@ The application uses a `.env` file to manage secret keys and configuration.
 
 ```
 # === API KEYS ===
-# Your secret Google Gemini API Key from Google AI Studio. Used by frontend and backend.
+# Your secret Google Gemini API Key from Google AI Studio. Used by the backend server.
 API_KEY="AIzaSy...your...secret...key...here"
 
 # (Optional) Your ElevenLabs API key for additional TTS voices. Used by the backend.
@@ -114,25 +114,22 @@ PG_PORT=5432
 
 ## 3. Running the Application Locally
 
-The application requires two processes running simultaneously: the backend server and the frontend client. You must open **two separate terminal windows** for this.
+The application is a single process. The Node.js/Express server handles both the backend API and serves all the frontend files. You only need to run **one command in one terminal**.
 
-### Terminal 1: Start the Backend Server
-
-This command starts the Node.js/Express server. It will automatically connect to your database and create the necessary tables on its first run.
-
+### For Development
+This command starts the server using `ts-node-dev`, which will automatically restart when you make changes to the code.
 ```bash
-npm run server
+npm run dev
 ```
-You should see output indicating the server is running and the database is ready.
 
-### Terminal 2: Start the Frontend Client
-
-This command serves the React application.
-
+### For Production Simulation
+This command first compiles the TypeScript code into JavaScript in the `dist` folder, then runs the compiled code. This is how it would run in a production environment.
 ```bash
-npm run client
+npm run build
+npm run start
 ```
-This will provide a local URL, typically `http://localhost:8080`. Open this address in your web browser to use the MYTHOS DASHBOARD.
+
+After starting the server, open your web browser and navigate to `http://localhost:3001` (or the port you configured in your `.env` file) to use the MYTHOS DASHBOARD.
 
 ---
 
@@ -161,8 +158,8 @@ Push your latest code to a GitHub repository. Render will connect directly to th
     -   **Name:** Give your web service a name (e.g., `mythos-dashboard-server`).
     -   **Root Directory:** Leave this blank if your `package.json` is in the root.
     -   **Environment:** Select `Node`.
-    -   **Build Command:** `npm install`
-    -   **Start Command:** `ts-node server.ts`
+    -   **Build Command:** `npm install && npm run build`
+    -   **Start Command:** `npm run start`
 4.  Click **Advanced**, then go to the **Environment** tab.
 5.  Add your secrets from your `.env` file as **Environment Variables**.
     -   `API_KEY`: Your Google Gemini API key.
@@ -171,16 +168,4 @@ Push your latest code to a GitHub repository. Render will connect directly to th
     -   **Important:** Also add a `NODE_VERSION` variable and set it to `18` or higher.
 6.  Click **Create Web Service**. Render will build and deploy your server.
 
-### Step 4.4: Deploy the Frontend on Render
-
-This application's Express server is already configured to serve the frontend files. We just need to tell Render where they are.
-
-1.  Go to the settings for the Web Service you just created.
-2.  Navigate to the **Redirects/Rewrites** section.
-3.  Add a **Rewrite Rule**:
-    -   **Source:** `/*`
-    -   **Destination:** `/index.html`
-    -   **Action:** `Rewrite`
-4.  This rule ensures that all requests are routed through your `index.html` file, allowing the React front-end to handle routing.
-
-Your application is now live! You can access it at the URL provided by Render (e.g., `https://mythos-dashboard-server.onrender.com`).
+Your application is now live! Because the Express server also serves the frontend, you can access the full application at the URL provided by Render (e.g., `https://mythos-dashboard-server.onrender.com`). No separate frontend deployment is necessary.

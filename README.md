@@ -23,9 +23,9 @@ Welcome to the MYTHOS DASHBOARD, a powerful, multi-tool AI assistant designed fo
 
 ## 🚀 Tech Stack
 
-- **Frontend:** React, TypeScript, Tailwind CSS
+- **Frontend:** React, TypeScript, Tailwind CSS (served by Express)
 - **Backend:** Node.js, Express, TypeScript
-- **AI Models:** Google Gemini API (`gemini-2.5-flash`, `imagen-4.0-generate-001`, `veo-2.0-generate-001`, `text-embedding-004`)
+- **AI Models:** Google Gemini API (`gemini-2.5-flash`, `imagen-4.0-generate-001`, `veo-2.0-generate-001`)
 - **Database:** PostgreSQL with `pgvector` for persistent storage and semantic search capabilities.
 - **File Handling:** Multer for file uploads and server-side storage.
 
@@ -51,14 +51,14 @@ npm install
 
 ### 3. Configure Environment Variables
 
-The backend server requires API keys and database connection details. The frontend requires API keys to be available in its environment (e.g., through a Vite/Webpack setup, which is not part of this vanilla project, so they must be manually exposed if needed).
+The backend server requires API keys and database connection details to function.
 
 1.  Create a new file named `.env` in the root directory.
 2.  Add your secret API keys and database credentials to this file. See the example below.
 
 ```
 # === API KEYS ===
-# Your secret Google Gemini API Key. Used by frontend and backend.
+# Your secret Google Gemini API Key. Used by the backend server.
 API_KEY="AIzaSy...your...secret...key...here"
 
 # (Optional) Your ElevenLabs API key for additional TTS voices. Used by backend.
@@ -83,25 +83,20 @@ PG_PORT=5432
 
 ### 4. Run the Application
 
-The application consists of a backend server and a frontend client, which must be run concurrently in **two separate terminals**.
+This is a full-stack application where the Node.js/Express server handles both the backend API and serving the frontend files. You only need to run **one command** in your terminal.
 
-**Terminal 1: Start the Backend Server**
-
-This command starts the Node.js/Express server. On the first run, it will automatically create the necessary tables in your database.
-
+**To run in development mode (with auto-reloading):**
 ```bash
-npm run server
+npm run dev
 ```
 
-**Terminal 2: Start the Frontend Client**
-
-This command serves the React application.
-
+**To run in production mode:**
 ```bash
-npm run client
+npm run build
+npm run start
 ```
 
-Open the local URL provided by the client (e.g., `http://localhost:8080`) in your web browser to use the dashboard.
+After running the command, open `http://localhost:3001` (or your configured port) in your web browser to use the dashboard.
 
 ---
 
