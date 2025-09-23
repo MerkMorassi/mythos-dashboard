@@ -307,33 +307,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
         </div>
       )}
       
-      <div className="flex items-end w-full bg-secondary rounded-lg border border-accent focus-within:ring-2 focus-within:ring-brand transition-shadow duration-200 p-2 gap-2">
-        <div className="flex items-center gap-1">
-          {showCamera && <button
-            onClick={() => imageFileInputRef.current?.click()}
-            disabled={isLoading || !!docFile || !!audioFile}
-            className="p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-            aria-label="Upload image"
-          >
-            <CameraIcon />
-          </button>}
-          {showPaperclip && <button
-            onClick={() => docFileInputRef.current?.click()}
-            disabled={isLoading || !!imageFile || !!audioFile}
-            className="p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-            aria-label="Upload document"
-          >
-            <PaperclipIcon />
-          </button>}
-          {showAudioUpload && <button
-            onClick={() => audioFileInputRef.current?.click()}
-            disabled={isLoading || !!imageFile || !!docFile}
-            className="p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-            aria-label="Upload audio"
-          >
-            <AudioIcon />
-          </button>}
-        </div>
+      <div className="w-full bg-secondary rounded-lg border border-accent focus-within:ring-2 focus-within:ring-brand transition-shadow duration-200 flex flex-col">
         <textarea
           ref={textareaRef}
           value={input}
@@ -341,45 +315,78 @@ const MessageInput: React.FC<MessageInputProps> = ({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           rows={1}
-          className="w-full flex-1 bg-transparent text-text-primary placeholder-text-secondary resize-none focus:outline-none"
+          className="w-full bg-transparent text-text-primary placeholder-text-secondary resize-none focus:outline-none p-3"
           disabled={isLoading || textInputDisabled}
         />
-        <div className="flex items-center space-x-1">
-           {activeTool === 'VIDEO_GEN' && isImageAvailableForVideo && (
-            <button
-              onClick={handleUseLastImage}
-              disabled={isLoading || !input.trim()}
-              className="p-2 rounded-full bg-indigo-500 text-white hover:bg-indigo-600 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 text-xs whitespace-nowrap"
-              aria-label="Use Last Image for Video"
-              title="Use Last Generated Image"
+        
+        <div className="flex items-center justify-between p-2 border-t border-accent">
+          {/* Left-side action buttons */}
+          <div className="flex items-center gap-1">
+            {showCamera && <button
+              onClick={() => imageFileInputRef.current?.click()}
+              disabled={isLoading || !!docFile || !!audioFile}
+              className="p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+              aria-label="Upload image"
             >
-              Use Last Image
-            </button>
-           )}
-           {isSpeechSupported && (
+              <CameraIcon />
+            </button>}
+            {showPaperclip && <button
+              onClick={() => docFileInputRef.current?.click()}
+              disabled={isLoading || !!imageFile || !!audioFile}
+              className="p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+              aria-label="Upload document"
+            >
+              <PaperclipIcon />
+            </button>}
+            {showAudioUpload && <button
+              onClick={() => audioFileInputRef.current?.click()}
+              disabled={isLoading || !!imageFile || !!docFile}
+              className="p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+              aria-label="Upload audio"
+            >
+              <AudioIcon />
+            </button>}
+          </div>
+
+          {/* Right-side action buttons */}
+          <div className="flex items-center space-x-1">
+            {activeTool === 'VIDEO_GEN' && isImageAvailableForVideo && (
               <button
-                  onClick={handleToggleRecording}
-                  disabled={isLoading}
-                  className={`p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 ${isRecording ? 'text-red-400 animate-pulse' : ''}`}
-                  aria-label={isRecording ? 'Stop recording' : 'Start recording'}
-                  >
-                  {isRecording ? <StopCircleIcon /> : <MicrophoneIcon />}
+                onClick={handleUseLastImage}
+                disabled={isLoading || !input.trim()}
+                className="py-1 px-3 rounded-full bg-indigo-500 text-white hover:bg-indigo-600 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 text-xs whitespace-nowrap"
+                aria-label="Use Last Image for Video"
+                title="Use Last Generated Image"
+              >
+                Use Last Image
               </button>
             )}
-          <button
-            onClick={handleSend}
-            disabled={sendDisabled}
-            className="p-2 rounded-full bg-brand text-white hover:bg-brand-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200"
-            aria-label="Send message"
-          >
-            {isLoading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              <SendIcon />
-            )}
-          </button>
+            {isSpeechSupported && (
+                <button
+                    onClick={handleToggleRecording}
+                    disabled={isLoading}
+                    className={`p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 ${isRecording ? 'text-red-400 animate-pulse' : ''}`}
+                    aria-label={isRecording ? 'Stop recording' : 'Start recording'}
+                    >
+                    {isRecording ? <StopCircleIcon /> : <MicrophoneIcon />}
+                </button>
+              )}
+            <button
+              onClick={handleSend}
+              disabled={sendDisabled}
+              className="p-2 rounded-full bg-brand text-white hover:bg-brand-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200"
+              aria-label="Send message"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <SendIcon />
+              )}
+            </button>
+          </div>
         </div>
       </div>
+
 
       <input
           type="file"

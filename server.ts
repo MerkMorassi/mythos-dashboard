@@ -1,9 +1,9 @@
-// FIX: Add reference to node types to resolve issues with process, __dirname, and Buffer.
 /// <reference types="node" />
 
-// FIX: Aliased express Request and Response to resolve conflicts with global DOM types.
-// FIX: Add NextFunction for typing middleware.
-import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
+import express from 'express';
+// To resolve conflicts with DOM types, we alias Request and Response from express.
+// Using a type-only import is best practice and can prevent some module resolution issues.
+import type { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
 import cors from 'cors';
 import multer from 'multer';
 // Note: Multer's File type is available via the Express namespace after importing multer, so a direct import is not needed or possible.
@@ -96,14 +96,12 @@ initDb();
 
 // --- MIDDLEWARE ---
 // Add request logging middleware to see all incoming requests
-// FIX: Add explicit types to middleware function parameters.
 app.use((req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
     next();
 });
 
 app.use(cors());
-// FIX: Using express.json() and express.urlencoded() is standard; type errors here are resolved by explicitly typing all handlers throughout the file.
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -140,7 +138,6 @@ const safetySettings = [
     { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
 ];
 
-// FIX: Use Express.Multer.File as the type for uploaded files. This type is available through namespace augmentation after importing multer.
 const fileToGenerativePart = (file: Express.Multer.File) => {
   return {
     inlineData: {
@@ -151,17 +148,14 @@ const fileToGenerativePart = (file: Express.Multer.File) => {
 };
 
 // --- API ROUTES ---
-const apiRouter = express.Router();
 
 // Health Check Endpoint
-// FIX: Add explicit Request and Response types to the route handler.
-apiRouter.get('/health', (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/health', (req: ExpressRequest, res: ExpressResponse) => {
     res.status(200).json({ status: 'ok' });
 });
 
 // CHAT & TEXT STREAMING
-// FIX: Add explicit Request and Response types to the route handler.
-apiRouter.post('/generate-stream', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/generate-stream', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
     const tool: string = req.body.tool || 'AGENT_HUB';
     const prompt: string = req.body.prompt || '';
     const history: string = req.body.history || '[]';
@@ -196,18 +190,15 @@ apiRouter.post('/generate-stream', upload.single('file'), async (req: ExpressReq
                     config: { systemInstruction }
                 });
 
-                // FIX: Manually aggregated response from stream chunks as `responseStream.response` was causing type errors.
                 let fullResponseText = '';
                 for await (const chunk of responseStream) {
                     const chunkText = chunk.text;
                     streamChunk(chunkText, agent.id);
                     fullResponseText += chunkText;
                 }
-                // Add the full response to history for the next agent
                 parsedHistory.push({ role: 'model', parts: [{ text: fullResponseText }] });
             }
         } else {
-            // Default or single-tool generation
             let model = 'gemini-2.5-flash';
             let contents: any[] = [{ role: 'user', parts: [{ text: prompt }] }];
             
@@ -230,8 +221,7 @@ apiRouter.post('/generate-stream', upload.single('file'), async (req: ExpressReq
 });
 
 // IMAGE GENERATION
-// FIX: Add explicit Request and Response types to the route handler.
-apiRouter.post('/generate-image', async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/generate-image', async (req: ExpressRequest, res: ExpressResponse) => {
     const prompt: string = req.body.prompt || '';
     const clientMessageId: string = req.body.clientMessageId || '';
 
@@ -258,7 +248,6 @@ apiRouter.post('/generate-image', async (req: ExpressRequest, res: ExpressRespon
 
         const dbResult = await pool.query(
             'INSERT INTO images (filename, prompt, client_message_id, seed) VALUES ($1, $2, $3, $4) RETURNING id',
-            // FIX: Cast firstImage to any to access the 'seed' property, which is missing from the type definition.
             [filename, prompt, clientMessageId, (firstImage as any).seed]
         );
         
@@ -274,8 +263,7 @@ apiRouter.post('/generate-image', async (req: ExpressRequest, res: ExpressRespon
 });
 
 // VIDEO GENERATION
-// FIX: Add explicit Request and Response types to the route handler.
-apiRouter.post('/generate-video', upload.single('image'), async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/generate-video', upload.single('image'), async (req: ExpressRequest, res: ExpressResponse) => {
     const { prompt, clientMessageId, sourceImageFilename } = req.body;
     const imageFile = req.file;
 
@@ -320,8 +308,7 @@ apiRouter.post('/generate-video', upload.single('image'), async (req: ExpressReq
 });
 
 // CHECK VIDEO STATUS
-// FIX: Add explicit Request and Response types to the route handler.
-apiRouter.post('/check-video-status', async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/check-video-status', async (req: ExpressRequest, res: ExpressResponse) => {
     const { operation, prompt, sourceImageFilename, clientMessageId } = req.body;
     try {
         let updatedOperation = await ai.operations.getVideosOperation({ operation });
@@ -336,10 +323,8 @@ apiRouter.post('/check-video-status', async (req: ExpressRequest, res: ExpressRe
                 const filePath = path.join('uploads', filename);
                 const fileStream = fs.createWriteStream(filePath);
                 
-                // Using ReadableStream.fromWeb to pipe
                 const { Readable } = await import('stream');
                 const body = Readable.fromWeb(videoRes.body as any);
-                // FIX: Wrapped promise resolve in an arrow function to match the expected signature for the 'finish' event.
                 await new Promise<void>((resolve, reject) => {
                     body.pipe(fileStream).on('finish', () => resolve()).on('error', reject);
                 });
@@ -349,7 +334,6 @@ apiRouter.post('/check-video-status', async (req: ExpressRequest, res: ExpressRe
                     [filename, prompt, sourceImageFilename, clientMessageId]
                 );
                 
-                // FIX: Cast videoData to any to dynamically add the 'localUrl' property.
                 (videoData as any).localUrl = `/uploads/${filename}`;
             }
         }
@@ -360,10 +344,8 @@ apiRouter.post('/check-video-status', async (req: ExpressRequest, res: ExpressRe
     }
 });
 
-
 // IMAGE ANALYSIS
-// FIX: Add explicit Request and Response types to the route handler.
-apiRouter.post('/analyze-image', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/analyze-image', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'No file uploaded.' });
 
@@ -373,7 +355,7 @@ apiRouter.post('/analyze-image', upload.single('file'), async (req: ExpressReque
             model: 'gemini-2.5-flash',
             contents: { parts: [imagePart, { text: 'Describe this image in detail.' }] }
         });
-        fs.unlinkSync(file.path); // Clean up temp file
+        fs.unlinkSync(file.path);
         res.json({ text: response.text });
     } catch (error) {
         console.error('Image Analysis Error:', error);
@@ -382,19 +364,14 @@ apiRouter.post('/analyze-image', upload.single('file'), async (req: ExpressReque
 });
 
 // SPEECH SYNTHESIS
-// FIX: Add explicit Request and Response types to the route handler.
-apiRouter.post('/synthesize-speech', async (req: ExpressRequest, res: ExpressResponse) => {
-    // This is a placeholder. The @google/genai SDK does not provide a TTS API.
-    // This would typically require the Google Cloud Text-to-Speech client library
-    // or a call to another service like ElevenLabs.
+app.post('/api/synthesize-speech', async (req: ExpressRequest, res: ExpressResponse) => {
     console.warn("TTS endpoint called, but no TTS service is implemented.");
     res.status(501).json({ error: "Text-to-Speech functionality is not implemented on the server." });
 });
 
 
 // GALLERY & FEEDBACK
-// FIX: Add explicit Request and Response types to the route handler.
-apiRouter.get('/gallery', async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/gallery', async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const result = await pool.query('SELECT * FROM images ORDER BY created_at DESC');
         res.json(result.rows);
@@ -403,8 +380,8 @@ apiRouter.get('/gallery', async (req: ExpressRequest, res: ExpressResponse) => {
         res.status(500).json({ error: 'Failed to fetch gallery' });
     }
 });
-// FIX: Add explicit Request and Response types to the route handler.
-apiRouter.post('/feedback', async (req: ExpressRequest, res: ExpressResponse) => {
+
+app.post('/api/feedback', async (req: ExpressRequest, res: ExpressResponse) => {
     const clientMessageId: string = req.body.clientMessageId || '';
     const feedback: string = req.body.feedback || '';
     
@@ -422,8 +399,7 @@ apiRouter.post('/feedback', async (req: ExpressRequest, res: ExpressResponse) =>
 });
 
 // --- LOCAL IMAGE VIEWER ROUTES ---
-// FIX: Add explicit Request and Response types to the route handler.
-apiRouter.get('/local-images', async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/local-images', async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const result = await pool.query('SELECT * FROM local_images ORDER BY created_at DESC');
         res.json(result.rows);
@@ -433,8 +409,7 @@ apiRouter.get('/local-images', async (req: ExpressRequest, res: ExpressResponse)
     }
 });
 
-// FIX: Add explicit Request and Response types to the route handler.
-apiRouter.post('/local-images/upload', upload.array('images'), async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/local-images/upload', upload.array('images'), async (req: ExpressRequest, res: ExpressResponse) => {
     const files = req.files as Express.Multer.File[];
     if (!files || files.length === 0) {
         return res.status(400).json({ error: 'No files uploaded.' });
@@ -459,8 +434,7 @@ apiRouter.post('/local-images/upload', upload.array('images'), async (req: Expre
     }
 });
 
-// FIX: Add explicit Request and Response types to the route handler.
-apiRouter.delete('/local-images/:id', async (req: ExpressRequest, res: ExpressResponse) => {
+app.delete('/api/local-images/:id', async (req: ExpressRequest, res: ExpressResponse) => {
     const { id } = req.params;
     const client = await pool.connect();
     try {
@@ -488,8 +462,7 @@ apiRouter.delete('/local-images/:id', async (req: ExpressRequest, res: ExpressRe
     }
 });
 
-// FIX: Add explicit Request and Response types to the route handler.
-apiRouter.post('/local-images/:id/analyze', async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/local-images/:id/analyze', async (req: ExpressRequest, res: ExpressResponse) => {
     const { id } = req.params;
     try {
         const result = await pool.query('SELECT filename FROM local_images WHERE id = $1', [id]);
@@ -527,8 +500,7 @@ apiRouter.post('/local-images/:id/analyze', async (req: ExpressRequest, res: Exp
 });
 
 // --- RAG DOCUMENT ROUTES ---
-// FIX: Add explicit Request and Response types to the route handler.
-apiRouter.get('/rag-documents/:repository', async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/rag-documents/:repository', async (req: ExpressRequest, res: ExpressResponse) => {
     const { repository } = req.params;
     try {
         const result = await pool.query('SELECT id, filename, original_filename, repository, created_at FROM rag_documents WHERE repository = $1 ORDER BY created_at DESC', [repository]);
@@ -539,8 +511,7 @@ apiRouter.get('/rag-documents/:repository', async (req: ExpressRequest, res: Exp
     }
 });
 
-// FIX: Add explicit Request and Response types to the route handler.
-apiRouter.post('/rag-documents/:repository/upload', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/rag-documents/:repository/upload', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
     const { repository } = req.params;
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'No file uploaded.' });
@@ -559,8 +530,7 @@ apiRouter.post('/rag-documents/:repository/upload', upload.single('file'), async
     }
 });
 
-// FIX: Add explicit Request and Response types to the route handler.
-apiRouter.delete('/rag-documents/:id', async (req: ExpressRequest, res: ExpressResponse) => {
+app.delete('/api/rag-documents/:id', async (req: ExpressRequest, res: ExpressResponse) => {
     const { id } = req.params;
     const client = await pool.connect();
     try {
@@ -585,15 +555,11 @@ apiRouter.delete('/rag-documents/:id', async (req: ExpressRequest, res: ExpressR
 
 
 // ALL OTHER ROUTES
-// FIX: Add explicit Request and Response types to the route handler.
-apiRouter.post('/detect-content-safety', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
-    // Placeholder, as the genai SDK's safety settings handle this implicitly.
-    // This endpoint could be used for more granular, custom checks if needed.
+app.post('/api/detect-content-safety', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
     res.json({ category: 'SAFE', reason: 'Content passed implicit safety checks.' });
 });
 
-// FIX: Add explicit Request and Response types to the route handler.
-apiRouter.post('/analyze-audio-style', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/analyze-audio-style', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'No file provided' });
     try {
@@ -610,8 +576,7 @@ apiRouter.post('/analyze-audio-style', upload.single('file'), async (req: Expres
     }
 });
 
-// FIX: Add explicit Request and Response types to the route handler.
-apiRouter.post('/generate-suno-lyrics', async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/generate-suno-lyrics', async (req: ExpressRequest, res: ExpressResponse) => {
     const { topic, agentId } = req.body;
     const agent = MUSIC_AGENTS.find(a => a.id === agentId);
     if (!agent) return res.status(400).json({ error: 'Invalid agent ID' });
@@ -636,10 +601,7 @@ apiRouter.post('/generate-suno-lyrics', async (req: ExpressRequest, res: Express
     }
 });
 
-// FIX: Add explicit Request and Response types to the route handler.
-apiRouter.post('/convert-audio-to-midi', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
-    // This is a creative interpretation. Gemini cannot output MIDI files directly.
-    // It will output a JSON representation of the music it hears.
+app.post('/api/convert-audio-to-midi', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
      const file = req.file;
     if (!file) return res.status(400).json({ error: 'No file provided' });
     try {
@@ -661,9 +623,6 @@ apiRouter.post('/convert-audio-to-midi', upload.single('file'), async (req: Expr
     }
 });
 
-// Mount the API router BEFORE static files to ensure API calls are not intercepted.
-app.use('/api', apiRouter);
-
 
 // --- STATIC FILE SERVING ---
 // This serves all the frontend files from the root directory of the project.
@@ -673,7 +632,6 @@ app.use('/local_uploads', express.static('local_uploads'));
 
 
 // Fallback for client-side routing and 404 handling
-// FIX: Add explicit Request and Response types to the route handler.
 app.use('*', (req: ExpressRequest, res: ExpressResponse) => {
     // Log all unhandled routes to help diagnose issues
     console.error(`[404] Unhandled route: ${req.method} ${req.originalUrl}`);
