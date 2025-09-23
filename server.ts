@@ -2,7 +2,7 @@
 /// <reference types="node" />
 
 // FIX: Imported Request and Response types from express to resolve conflicts with global DOM types and fix type errors in route handlers.
-import express, { Request, Response } from 'express';
+import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
 // Note: Multer's File type is available via the Express namespace after importing multer, so a direct import is not needed or possible.
@@ -145,7 +145,7 @@ const fileToGenerativePart = (file: Express.Multer.File) => {
 const apiRouter = express.Router();
 
 // CHAT & TEXT STREAMING
-apiRouter.post('/generate-stream', upload.single('file'), async (req: Request, res: Response) => {
+apiRouter.post('/generate-stream', upload.single('file'), async (req: express.Request, res: express.Response) => {
     const tool: string = req.body.tool || 'AGENT_HUB';
     const prompt: string = req.body.prompt || '';
     const history: string = req.body.history || '[]';
@@ -214,7 +214,7 @@ apiRouter.post('/generate-stream', upload.single('file'), async (req: Request, r
 });
 
 // IMAGE GENERATION
-apiRouter.post('/generate-image', async (req: Request, res: Response) => {
+apiRouter.post('/generate-image', async (req: express.Request, res: express.Response) => {
     const prompt: string = req.body.prompt || '';
     const clientMessageId: string = req.body.clientMessageId || '';
 
@@ -257,7 +257,7 @@ apiRouter.post('/generate-image', async (req: Request, res: Response) => {
 });
 
 // VIDEO GENERATION
-apiRouter.post('/generate-video', upload.single('image'), async (req: Request, res: Response) => {
+apiRouter.post('/generate-video', upload.single('image'), async (req: express.Request, res: express.Response) => {
     const { prompt, clientMessageId, sourceImageFilename } = req.body;
     const imageFile = req.file;
 
@@ -302,7 +302,7 @@ apiRouter.post('/generate-video', upload.single('image'), async (req: Request, r
 });
 
 // CHECK VIDEO STATUS
-apiRouter.post('/check-video-status', async (req: Request, res: Response) => {
+apiRouter.post('/check-video-status', async (req: express.Request, res: express.Response) => {
     const { operation, prompt, sourceImageFilename, clientMessageId } = req.body;
     try {
         let updatedOperation = await ai.operations.getVideosOperation({ operation });
@@ -343,7 +343,7 @@ apiRouter.post('/check-video-status', async (req: Request, res: Response) => {
 
 
 // IMAGE ANALYSIS
-apiRouter.post('/analyze-image', upload.single('file'), async (req: Request, res: Response) => {
+apiRouter.post('/analyze-image', upload.single('file'), async (req: express.Request, res: express.Response) => {
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'No file uploaded.' });
 
@@ -362,7 +362,7 @@ apiRouter.post('/analyze-image', upload.single('file'), async (req: Request, res
 });
 
 // SPEECH SYNTHESIS
-apiRouter.post('/synthesize-speech', async (req: Request, res: Response) => {
+apiRouter.post('/synthesize-speech', async (req: express.Request, res: express.Response) => {
     // This is a placeholder. The @google/genai SDK does not provide a TTS API.
     // This would typically require the Google Cloud Text-to-Speech client library
     // or a call to another service like ElevenLabs.
@@ -372,7 +372,7 @@ apiRouter.post('/synthesize-speech', async (req: Request, res: Response) => {
 
 
 // GALLERY & FEEDBACK
-apiRouter.get('/gallery', async (req: Request, res: Response) => {
+apiRouter.get('/gallery', async (req: express.Request, res: express.Response) => {
     try {
         const result = await pool.query('SELECT * FROM images ORDER BY created_at DESC');
         res.json(result.rows);
@@ -381,7 +381,7 @@ apiRouter.get('/gallery', async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Failed to fetch gallery' });
     }
 });
-apiRouter.post('/feedback', async (req: Request, res: Response) => {
+apiRouter.post('/feedback', async (req: express.Request, res: express.Response) => {
     const clientMessageId: string = req.body.clientMessageId || '';
     const feedback: string = req.body.feedback || '';
     
@@ -399,7 +399,7 @@ apiRouter.post('/feedback', async (req: Request, res: Response) => {
 });
 
 // --- LOCAL IMAGE VIEWER ROUTES ---
-apiRouter.get('/local-images', async (req: Request, res: Response) => {
+apiRouter.get('/local-images', async (req: express.Request, res: express.Response) => {
     try {
         const result = await pool.query('SELECT * FROM local_images ORDER BY created_at DESC');
         res.json(result.rows);
@@ -409,7 +409,7 @@ apiRouter.get('/local-images', async (req: Request, res: Response) => {
     }
 });
 
-apiRouter.post('/local-images/upload', upload.array('images'), async (req: Request, res: Response) => {
+apiRouter.post('/local-images/upload', upload.array('images'), async (req: express.Request, res: express.Response) => {
     const files = req.files as Express.Multer.File[];
     if (!files || files.length === 0) {
         return res.status(400).json({ error: 'No files uploaded.' });
@@ -434,7 +434,7 @@ apiRouter.post('/local-images/upload', upload.array('images'), async (req: Reque
     }
 });
 
-apiRouter.delete('/local-images/:id', async (req: Request, res: Response) => {
+apiRouter.delete('/local-images/:id', async (req: express.Request, res: express.Response) => {
     const { id } = req.params;
     const client = await pool.connect();
     try {
@@ -462,7 +462,7 @@ apiRouter.delete('/local-images/:id', async (req: Request, res: Response) => {
     }
 });
 
-apiRouter.post('/local-images/:id/analyze', async (req: Request, res: Response) => {
+apiRouter.post('/local-images/:id/analyze', async (req: express.Request, res: express.Response) => {
     const { id } = req.params;
     try {
         const result = await pool.query('SELECT filename FROM local_images WHERE id = $1', [id]);
@@ -500,7 +500,7 @@ apiRouter.post('/local-images/:id/analyze', async (req: Request, res: Response) 
 });
 
 // --- RAG DOCUMENT ROUTES ---
-apiRouter.get('/rag-documents/:repository', async (req: Request, res: Response) => {
+apiRouter.get('/rag-documents/:repository', async (req: express.Request, res: express.Response) => {
     const { repository } = req.params;
     try {
         const result = await pool.query('SELECT id, filename, original_filename, repository, created_at FROM rag_documents WHERE repository = $1 ORDER BY created_at DESC', [repository]);
@@ -511,7 +511,7 @@ apiRouter.get('/rag-documents/:repository', async (req: Request, res: Response) 
     }
 });
 
-apiRouter.post('/rag-documents/:repository/upload', upload.single('file'), async (req: Request, res: Response) => {
+apiRouter.post('/rag-documents/:repository/upload', upload.single('file'), async (req: express.Request, res: express.Response) => {
     const { repository } = req.params;
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'No file uploaded.' });
@@ -530,7 +530,7 @@ apiRouter.post('/rag-documents/:repository/upload', upload.single('file'), async
     }
 });
 
-apiRouter.delete('/rag-documents/:id', async (req: Request, res: Response) => {
+apiRouter.delete('/rag-documents/:id', async (req: express.Request, res: express.Response) => {
     const { id } = req.params;
     const client = await pool.connect();
     try {
@@ -555,13 +555,13 @@ apiRouter.delete('/rag-documents/:id', async (req: Request, res: Response) => {
 
 
 // ALL OTHER ROUTES
-apiRouter.post('/detect-content-safety', upload.single('file'), async (req: Request, res: Response) => {
+apiRouter.post('/detect-content-safety', upload.single('file'), async (req: express.Request, res: express.Response) => {
     // Placeholder, as the genai SDK's safety settings handle this implicitly.
     // This endpoint could be used for more granular, custom checks if needed.
     res.json({ category: 'SAFE', reason: 'Content passed implicit safety checks.' });
 });
 
-apiRouter.post('/analyze-audio-style', upload.single('file'), async (req: Request, res: Response) => {
+apiRouter.post('/analyze-audio-style', upload.single('file'), async (req: express.Request, res: express.Response) => {
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'No file provided' });
     try {
@@ -578,7 +578,7 @@ apiRouter.post('/analyze-audio-style', upload.single('file'), async (req: Reques
     }
 });
 
-apiRouter.post('/generate-suno-lyrics', async (req: Request, res: Response) => {
+apiRouter.post('/generate-suno-lyrics', async (req: express.Request, res: express.Response) => {
     const { topic, agentId } = req.body;
     const agent = MUSIC_AGENTS.find(a => a.id === agentId);
     if (!agent) return res.status(400).json({ error: 'Invalid agent ID' });
@@ -603,7 +603,7 @@ apiRouter.post('/generate-suno-lyrics', async (req: Request, res: Response) => {
     }
 });
 
-apiRouter.post('/convert-audio-to-midi', upload.single('file'), async (req: Request, res: Response) => {
+apiRouter.post('/convert-audio-to-midi', upload.single('file'), async (req: express.Request, res: express.Response) => {
     // This is a creative interpretation. Gemini cannot output MIDI files directly.
     // It will output a JSON representation of the music it hears.
      const file = req.file;
@@ -639,7 +639,7 @@ app.use('/local_uploads', express.static('local_uploads'));
 
 
 // Fallback for client-side routing
-app.get('*', (req: Request, res: Response) => {
+app.get('*', (req: express.Request, res: express.Response) => {
     const ext = path.extname(req.path);
     // If it's not an API call and has no extension (likely a client-side route), serve index.html.
     if (!req.path.startsWith('/api/') && !ext) {

@@ -461,7 +461,7 @@ export const App: React.FC = () => {
 
         const localUrl = operation.response?.generatedVideos?.[0]?.video?.localUrl;
         if (localUrl) {
-            const videoUrl = `http://localhost:3001${localUrl}`;
+            const videoUrl = localUrl;
              setMessages(prev => prev.map(msg => msg.id === responseMessageId ? {...msg, content: '', videoUrl} : msg));
         } else {
             throw new Error('Video generation finished but no local URL was provided.');
@@ -486,7 +486,7 @@ export const App: React.FC = () => {
   
   const handleGenerateVideoFromLastImage = async (prompt: string) => {
     if (!lastGeneratedImageFilename) return;
-    const imageUrl = `http://localhost:3001/uploads/${lastGeneratedImageFilename}`;
+    const imageUrl = `/uploads/${lastGeneratedImageFilename}`;
     addMessage({ role: MessageRole.USER, content: prompt, operator: activeOperator, imageUrl });
     setIsLoading(true);
     const responseMessageId = window.crypto.randomUUID();
