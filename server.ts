@@ -2,7 +2,8 @@
 /// <reference types="node" />
 
 // FIX: Aliased express Request and Response to resolve conflicts with global DOM types.
-import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
+// FIX: Add NextFunction for typing middleware.
+import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
 import cors from 'cors';
 import multer from 'multer';
 // Note: Multer's File type is available via the Express namespace after importing multer, so a direct import is not needed or possible.
@@ -94,8 +95,15 @@ const initDb = async () => {
 initDb();
 
 // --- MIDDLEWARE ---
+// Add request logging middleware to see all incoming requests
+// FIX: Add explicit types to middleware function parameters.
+app.use((req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+    next();
+});
+
 app.use(cors());
-// FIX: Correctly typed express middleware usage. This resolves overload errors.
+// FIX: Using express.json() and express.urlencoded() is standard; type errors here are resolved by explicitly typing all handlers throughout the file.
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -144,6 +152,12 @@ const fileToGenerativePart = (file: Express.Multer.File) => {
 
 // --- API ROUTES ---
 const apiRouter = express.Router();
+
+// Health Check Endpoint
+// FIX: Add explicit Request and Response types to the route handler.
+apiRouter.get('/health', (req: ExpressRequest, res: ExpressResponse) => {
+    res.status(200).json({ status: 'ok' });
+});
 
 // CHAT & TEXT STREAMING
 // FIX: Add explicit Request and Response types to the route handler.
@@ -658,19 +672,22 @@ app.use('/uploads', express.static('uploads'));
 app.use('/local_uploads', express.static('local_uploads'));
 
 
-// Fallback for client-side routing
+// Fallback for client-side routing and 404 handling
 // FIX: Add explicit Request and Response types to the route handler.
-app.get('*', (req: ExpressRequest, res: ExpressResponse) => {
-    const ext = path.extname(req.path);
-    // If it's not an API call and has no extension (likely a client-side route), serve index.html.
-    if (!req.path.startsWith('/api/') && !ext) {
-        res.sendFile(path.join(__dirname, '..', 'index.html'));
-    } else if (ext) {
-        // Let the static middleware handle files with extensions
-        res.status(404).send('File not found');
-    } else {
-        res.status(404).send('API endpoint not found');
+app.use('*', (req: ExpressRequest, res: ExpressResponse) => {
+    // Log all unhandled routes to help diagnose issues
+    console.error(`[404] Unhandled route: ${req.method} ${req.originalUrl}`);
+
+    // If it's a GET request for a page-like URL, serve the main app
+    if (req.method === 'GET' && !req.path.startsWith('/api/') && !path.extname(req.path)) {
+        console.log(`[Router] Serving index.html for client-side route: ${req.originalUrl}`);
+        return res.sendFile(path.join(__dirname, '..', 'index.html'));
     }
+    
+    // For all other unhandled requests (e.g., POST to a bad URL), send a clear JSON 404
+    res.status(404).json({
+        error: `The requested endpoint was not found: ${req.method} ${req.originalUrl}`
+    });
 });
 
 
