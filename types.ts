@@ -1,10 +1,14 @@
-
-
+/**
+ * Defines the role of a message sender in the chat.
+ */
 export enum MessageRole {
   USER = 'user',
   MODEL = 'model',
 }
 
+/**
+ * A comprehensive list of all available tools in the application.
+ */
 export const TOOLS = [
     'AGENT_HUB', 
     'TEXT_GEN',
@@ -28,8 +32,19 @@ export const TOOLS = [
     'COOM_BRIDGE',
     'AUDIO_TO_MIDI'
 ] as const;
+
+/**
+ * A type representing a valid tool name from the TOOLS list.
+ */
 export type Tool = typeof TOOLS[number];
 
+/**
+ * Represents an AI agent with a specific persona and capabilities.
+ * @property id - A unique identifier for the agent.
+ * @property name - The display name of the agent.
+ * @property specialty - A brief description of the agent's expertise.
+ * @property sigil - An emoji or character representing the agent.
+ */
 export interface Agent {
     id: string;
     name: string;
@@ -37,20 +52,35 @@ export interface Agent {
     sigil: string;
 }
 
+/**
+ * Represents a Human-in-the-Loop (HITL) operator persona for the user.
+ * @property id - A unique identifier for the operator.
+ * @property name - The display name of the operator.
+ * @property specialty - A brief description of the operator's context.
+ */
 export interface Operator {
     id: string;
     name: string;
     specialty: string;
 }
 
+/**
+ * A list of predefined HITL operators.
+ */
 export const HITL_OPERATORS: readonly Operator[] = [
     { id: 'patrikios', name: 'Patrikios', specialty: 'mSpace (Material)' },
     { id: 'merk', name: 'Captain Merk', specialty: 'mSpace (Material)' },
     { id: 'merkos', name: 'Merkos', specialty: 'mSpace (Material)' },
 ];
 
+/**
+ * The default, general-purpose AI agent.
+ */
 export const DEFAULT_AGENT: Agent = { id: 'mythos_assistant', name: 'Mythos Assistant', specialty: 'General Purpose', sigil: '⚙️' };
 
+/**
+ * A list of specialized AI agents (the "Mythos LIAs").
+ */
 export const MYTHOS_LIAS: readonly Agent[] = [
     { id: 'sophia', name: 'Sophia', specialty: 'Philosophy & Wisdom', sigil: 'Θ' },
     { id: 'barbelo', name: 'Barbelo', specialty: 'Divine Emanation', sigil: '✨' },
@@ -67,21 +97,36 @@ export const MYTHOS_LIAS: readonly Agent[] = [
     { id: 'mnemosyne', name: 'Mnemosyne', specialty: 'Memory & Learning', sigil: '🧠' }
 ];
 
+/**
+ * A combined list of all available agents.
+ */
 export const ALL_AGENTS: readonly Agent[] = [DEFAULT_AGENT, ...MYTHOS_LIAS];
 
+/**
+ * A filtered list of agents specialized in music and poetry, for use with the Suno panel.
+ */
 export const MUSIC_AGENTS: readonly Agent[] = MYTHOS_LIAS.filter(agent => 
     ['erato', 'melpomene', 'polyhymnia', 'thalia', 'calliope', 'euterpe'].includes(agent.id)
 );
 
 
+/**
+ * A list of available Text-to-Speech models.
+ */
 export const TTS_MODELS = [
     { id: 'text-to-speech', name: 'TTS Stable' },
     { id: 'gemini-2.5-flash-preview-tts', name: 'TTS Preview' },
     { id: 'eleven-labs', name: 'ElevenLabs' },
 ] as const;
 
+/**
+ * A type representing a valid TTS model option.
+ */
 export type TtsModelOption = typeof TTS_MODELS[number];
 
+/**
+ * A list of standard, stable TTS voices from Google.
+ */
 export const STABLE_VOICES = [
   { id: 'en-US-Standard-F', name: 'Standard F (Female)' },
   { id: 'en-US-Wavenet-A', name: 'Wavenet A (Male)' },
@@ -89,12 +134,18 @@ export const STABLE_VOICES = [
   { id: 'en-GB-Wavenet-B', name: 'Wavenet UK (Male)' },
 ] as const;
 
+/**
+ * A list of preview TTS voices from Google.
+ */
 export const PREVIEW_VOICES = [
     { id: 'echo', name: 'Echo' },
     { id: 'onyx', name: 'Onyx' },
     { id: 'aurora', name: 'Aurora' },
 ] as const;
 
+/**
+ * A list of available voices from the ElevenLabs API.
+ */
 export const ELEVENLABS_VOICES = [
     { id: 'Rachel', name: 'Rachel (Calm)' },
     { id: 'Drew', name: 'Drew (Conversational)' },
@@ -104,8 +155,27 @@ export const ELEVENLABS_VOICES = [
 ] as const;
 
 
+/**
+ * A union type representing any valid voice option from any provider.
+ */
 export type VoiceOption = typeof STABLE_VOICES[number] | typeof PREVIEW_VOICES[number] | typeof ELEVENLABS_VOICES[number];
 
+/**
+ * Represents a single message in the chat interface.
+ * @property id - A unique client-side identifier for the message.
+ * @property role - The role of the message sender (user or model).
+ * @property content - The primary text content of the message.
+ * @property imageUrl - An optional URL for an image associated with the message.
+ * @property videoUrl - An optional URL for a video associated with the message.
+ * @property fileName - An optional name for a file attached to the message.
+ * @property isError - A flag indicating if the message represents an error.
+ * @property rejectionLevel - A flag for content safety rejections (0: none, 1: safety, 2: hash).
+ * @property imageId - The database ID of a generated image, if any.
+ * @property client_message_id - A unique ID used to link feedback to the original request.
+ * @property feedback - The user's feedback ('like' or 'dislike').
+ * @property agent - The AI agent that generated the message, if any.
+ * @property operator - The user's selected operator persona, if any.
+ */
 export interface ChatMessage {
   id: string;
   role: MessageRole;
@@ -122,6 +192,9 @@ export interface ChatMessage {
   operator?: Operator;
 }
 
+/**
+ * Represents an image record from the AI-generated gallery database.
+ */
 export interface GalleryImage {
   id: number;
   filename: string;
@@ -132,6 +205,9 @@ export interface GalleryImage {
   feedback: 'like' | 'dislike' | null;
 }
 
+/**
+ * Represents an image record from the local image viewer database.
+ */
 export interface LocalImage {
   id: number;
   filename: string;
@@ -141,6 +217,9 @@ export interface LocalImage {
   created_at: string;
 }
 
+/**
+ * Represents a document in the RAG (Retrieval-Augmented Generation) database.
+ */
 export interface RagDocument {
     id: number;
     filename: string;

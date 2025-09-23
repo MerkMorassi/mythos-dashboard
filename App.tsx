@@ -177,7 +177,7 @@ export const App: React.FC = () => {
     }
   }, [speakingMessageId, selectedVoice, selectedTtsModel]);
 
-  const handleStreamedGeneration = async (
+  const handleStreamedGeneration = useCallback(async (
       tool: Tool, 
       userPrompt: string, 
       file: File | null = null, 
@@ -287,10 +287,10 @@ export const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [messages, activeOperator, activeAgents]);
 
 
-  const handleGenerateImage = async (prompt: string) => {
+  const handleGenerateImage = useCallback(async (prompt: string) => {
     addMessage({ role: MessageRole.USER, content: prompt, operator: activeOperator });
     setIsLoading(true);
     setLastGeneratedImageFilename(null);
@@ -316,9 +316,9 @@ export const App: React.FC = () => {
     } finally {
         setIsLoading(false);
     }
-  };
+  }, [activeOperator]);
   
-  const commonVideoGenerationHandler = async (promise: Promise<{ operation: any; sourceImageFilename: string | null; }>, prompt: string, imageUrl: string | undefined, responseMessageId: string) => {
+  const commonVideoGenerationHandler = useCallback(async (promise: Promise<{ operation: any; sourceImageFilename: string | null; }>, prompt: string, imageUrl: string | undefined, responseMessageId: string) => {
     try {
         setMessages(prev => prev.map(msg => msg.id === responseMessageId ? {...msg, content: 'Video generation started... This can take a few minutes.'} : msg));
         
@@ -345,17 +345,17 @@ export const App: React.FC = () => {
     } finally {
         setIsLoading(false);
     }
-  };
+  }, []);
   
-  const handleGenerateVideo = async (prompt: string, imageFile: File | null) => {
+  const handleGenerateVideo = useCallback(async (prompt: string, imageFile: File | null) => {
     addMessage({ role: MessageRole.USER, content: prompt, operator: activeOperator, imageUrl: imageFile ? URL.createObjectURL(imageFile) : undefined });
     setIsLoading(true);
     const responseMessageId = crypto.randomUUID();
     setMessages(prev => [...prev, {id: responseMessageId, role: MessageRole.MODEL, content: '...'}]);
     await commonVideoGenerationHandler(generateVideo(prompt, imageFile || undefined, responseMessageId), prompt, imageFile ? URL.createObjectURL(imageFile) : undefined, responseMessageId);
-  };
+  }, [activeOperator, commonVideoGenerationHandler]);
   
-  const handleGenerateVideoFromLastImage = async (prompt: string) => {
+  const handleGenerateVideoFromLastImage = useCallback(async (prompt: string) => {
     if (!lastGeneratedImageFilename) return;
     const imageUrl = `http://localhost:3001/uploads/${lastGeneratedImageFilename}`;
     addMessage({ role: MessageRole.USER, content: prompt, operator: activeOperator, imageUrl });
@@ -363,9 +363,9 @@ export const App: React.FC = () => {
     const responseMessageId = crypto.randomUUID();
     setMessages(prev => [...prev, {id: responseMessageId, role: MessageRole.MODEL, content: '...'}]);
     await commonVideoGenerationHandler(generateVideoFromLastImage(prompt, lastGeneratedImageFilename, responseMessageId), prompt, imageUrl, responseMessageId);
-  };
+  }, [lastGeneratedImageFilename, activeOperator, commonVideoGenerationHandler]);
 
-  const handleDetectContentSafety = async (file: File) => {
+  const handleDetectContentSafety = useCallback(async (file: File) => {
       addMessage({ role: MessageRole.USER, content: `Checking content safety for document:`, operator: activeOperator, fileName: file.name });
       setIsLoading(true);
       const responseMessageId = crypto.randomUUID();
@@ -381,7 +381,7 @@ export const App: React.FC = () => {
       } finally {
           setIsLoading(false);
       }
-  };
+  }, [activeOperator]);
 
   const handleFetchGallery = useCallback(async () => {
     // No longer gate fetching by isLoading, allow refetching.
@@ -397,7 +397,7 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  const handleAnalyzeImage = async (file: File) => {
+  const handleAnalyzeImage = useCallback(async (file: File) => {
     setIsLoading(true);
     const responseMessageId = crypto.randomUUID();
     
@@ -439,9 +439,9 @@ export const App: React.FC = () => {
           setIsLoading(false);
         }
     };
-  };
+  }, [activeOperator]);
 
-  const handleFeedback = async (messageId: string, feedback: 'like' | 'dislike') => {
+  const handleFeedback = useCallback(async (messageId: string, feedback: 'like' | 'dislike') => {
       const message = messages.find(m => m.id === messageId);
       if (!message || !message.client_message_id) return;
 
@@ -465,38 +465,38 @@ export const App: React.FC = () => {
           // Revert state on error by refetching gallery
           handleFetchGallery();
       }
-  };
+  }, [messages, handleFetchGallery]);
 
 
-  const handleOpenLightbox = (index: number) => {
+  const handleOpenLightbox = useCallback((index: number) => {
     setLightboxIndex(index);
-  };
+  }, []);
 
-  const handleCloseLightbox = () => {
+  const handleCloseLightbox = useCallback(() => {
       setLightboxIndex(null);
-  };
+  }, []);
 
-  const handlePrevImage = () => {
+  const handlePrevImage = useCallback(() => {
       if (lightboxIndex !== null) {
           setLightboxIndex((prevIndex) => 
               prevIndex === null ? 0 : (prevIndex - 1 + galleryImages.length) % galleryImages.length
           );
       }
-  };
+  }, [lightboxIndex, galleryImages]);
 
-  const handleNextImage = () => {
+  const handleNextImage = useCallback(() => {
       if (lightboxIndex !== null) {
           setLightboxIndex((prevIndex) => 
               prevIndex === null ? 0 : (prevIndex + 1) % galleryImages.length
           );
       }
-  };
+  }, [lightboxIndex, galleryImages]);
 
-  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, image: GalleryImage) => {
+  const handleDragStart = useCallback((e: React.DragEvent<HTMLDivElement>, image: GalleryImage) => {
     e.dataTransfer.setData('application/json', JSON.stringify(image));
-  };
+  }, []);
 
-  const onToolSend = (message: string, file: File | null) => {
+  const onToolSend = useCallback((message: string, file: File | null) => {
     switch (activeTool) {
       case 'AGENT_HUB':
       case 'CODE_GEN':
@@ -531,9 +531,9 @@ export const App: React.FC = () => {
       default:
         handleStreamedGeneration('AGENT_HUB', message, file, {});
     }
-  };
+  }, [activeTool, handleStreamedGeneration, handleGenerateImage, handleGenerateVideo, handleAnalyzeImage, handleDetectContentSafety]);
 
-  const handleToolChange = (tool: Tool) => {
+  const handleToolChange = useCallback((tool: Tool) => {
     if (tool === 'NOTEBOOK_LM') {
         window.open('https://notebooklm.google.com', '_blank', 'noopener,noreferrer');
     } else if (tool === 'PERCHANCE_MIXER') {
@@ -547,25 +547,25 @@ export const App: React.FC = () => {
     } else {
         setActiveTool(tool);
     }
-  };
+  }, [rightPanelContent]);
 
-  const handleToggleGallery = () => {
+  const handleToggleGallery = useCallback(() => {
     setRightPanelContent(rightPanelContent === 'GALLERY' ? null : 'GALLERY');
-  };
+  }, [rightPanelContent]);
   
-  const handleToggleTtsPanel = () => {
+  const handleToggleTtsPanel = useCallback(() => {
     setRightPanelContent(rightPanelContent === 'TTS' ? null : 'TTS');
-  };
+  }, [rightPanelContent]);
   
-  const handleToggleAgentPanel = () => {
+  const handleToggleAgentPanel = useCallback(() => {
     setRightPanelContent(rightPanelContent === 'AGENTS' ? null : 'AGENTS');
-  };
+  }, [rightPanelContent]);
   
-  const handleToggleOperatorPanel = () => {
+  const handleToggleOperatorPanel = useCallback(() => {
     setRightPanelContent(rightPanelContent === 'OPERATOR' ? null : 'OPERATOR');
-  };
+  }, [rightPanelContent]);
 
-  const handleOpenPerchanceWithParams = () => {
+  const handleOpenPerchanceWithParams = useCallback(() => {
     const { description, negative, numImages, shape, Gscale, seed } = perchanceFormData;
     const baseUrl = 'https://perchance.org/c6m2dfzel7';
     const params = new URLSearchParams();
@@ -580,9 +580,9 @@ export const App: React.FC = () => {
     
     const fullUrl = `${baseUrl}?${params.toString()}`;
     window.open(fullUrl, '_blank', 'noopener,noreferrer');
-  };
+  }, [perchanceFormData]);
 
-  const handleOpenSunoWithParams = () => {
+  const handleOpenSunoWithParams = useCallback(() => {
     const { style, lyrics } = sunoFormData;
     let fullPrompt = lyrics;
     if (style) {
@@ -590,9 +590,9 @@ export const App: React.FC = () => {
     }
     navigator.clipboard.writeText(fullPrompt.trim());
     window.open('https://suno.com/create', '_blank', 'noopener,noreferrer');
-  };
+  }, [sunoFormData]);
 
-  const handleAnalyzeAudio = async (file: File) => {
+  const handleAnalyzeAudio = useCallback(async (file: File) => {
     try {
         const style = await analyzeAudioForSunoStyle(file);
         setSunoFormData(prev => ({...prev, style: style }));
@@ -600,9 +600,9 @@ export const App: React.FC = () => {
         console.error("Failed to analyze audio for Suno:", error);
         addMessage({ role: MessageRole.MODEL, content: 'Failed to analyze audio style.', isError: true });
     }
-  };
+  }, []);
 
-  const handleGenerateSunoLyrics = async (topic: string, agentId: string) => {
+  const handleGenerateSunoLyrics = useCallback(async (topic: string, agentId: string) => {
     try {
         const reader = await generateSunoLyrics(topic, agentId);
         const decoder = new TextDecoder();
@@ -618,9 +618,9 @@ export const App: React.FC = () => {
         console.error("Failed to generate Suno lyrics:", error);
         addMessage({ role: MessageRole.MODEL, content: 'Failed to generate lyrics.', isError: true });
     }
-  };
+  }, []);
 
-  const handleInitiateEdit = (text: string) => {
+  const handleInitiateEdit = useCallback((text: string) => {
     setInput(text);
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
@@ -632,9 +632,9 @@ export const App: React.FC = () => {
             textarea.setSelectionRange(textarea.value.length, textarea.value.length);
         }
     }, 0);
-  };
+  }, []);
   
-  const handleAgentToggle = (agentId: string) => {
+  const handleAgentToggle = useCallback((agentId: string) => {
     setActiveAgents(prev => {
         const newSet = new Set(prev);
         if (newSet.has(agentId)) {
@@ -644,9 +644,9 @@ export const App: React.FC = () => {
         }
         return newSet;
     });
-  };
+  }, []);
 
-  const handleToggleAllAgents = () => {
+  const handleToggleAllAgents = useCallback(() => {
     setActiveAgents(prev => {
         if (prev.size === ALL_AGENTS.length) {
             return new Set();
@@ -654,7 +654,7 @@ export const App: React.FC = () => {
             return new Set(ALL_AGENTS.map(a => a.id));
         }
     });
-  };
+  }, []);
 
   const isMainView = activeTool !== 'LOCAL_VIEWER' && activeTool !== 'RAG_DB' && activeTool !== 'AUDIO_TO_MIDI';
   const showMessageInput = isMainView && rightPanelContent !== 'SUNO';

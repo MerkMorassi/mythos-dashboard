@@ -1,19 +1,18 @@
-
 # MYTHOS DASHBOARD
 
 Welcome to the MYTHOS DASHBOARD, a powerful, multi-tool AI assistant designed for creative and analytical tasks. This standalone, full-stack application leverages the Google Gemini API to provide a seamless interface for text generation, code analysis, image and video creation, and much more, all within a single, responsive dashboard.
 
-![MYTHOS DASHBOARD Screenshot](https://i.imgur.com/your-screenshot-here.png) <!-- Add a screenshot of the dashboard here -->
+<!-- TODO: Replace this placeholder with a real screenshot of the application dashboard. -->
+![MYTHOS DASHBOARD Screenshot](https://i.imgur.com/your-screenshot-here.png)
 
 ## ✨ Key Features
 
 - **Multi-Tool Interface:** Switch between a wide array of specialized AI tools:
   - **Generate:** Chat, Text, Code, Images, Video, and Speech (TTS).
-  - **Analyze:** Images, Code, Documents, Audio, and even Web URLs.
-  - **Data:** Persistent AI-generated image gallery, a local file viewer, and a document manager for Retrieval-Augmented Generation (RAG).
+  - **Analyze:** Images, Code, Documents, Audio (transcription), and even Web URLs.
+  - **Convert:** Turn audio recordings of single instruments into MIDI data.
 - **Agentic System:** Interact with a hub of specialized AI agents, each with its own unique expertise and knowledge base.
 - **Real-Time Streaming:** Text-based tools stream responses in real-time, providing an interactive and responsive user experience.
-- **AI-Powered Media Generation:** Create stunning images and videos from simple text prompts using the latest models.
 - **Persistent Galleries & Databases:**
   - **AI Gallery:** All generated images are saved to a persistent gallery for later viewing.
   - **Local Viewer:** Upload your own images for persistent storage and on-demand AI analysis.
@@ -27,8 +26,30 @@ Welcome to the MYTHOS DASHBOARD, a powerful, multi-tool AI assistant designed fo
 - **Frontend:** React, TypeScript, Tailwind CSS
 - **Backend:** Node.js, Express, TypeScript
 - **AI Models:** Google Gemini API (`gemini-2.5-flash`, `imagen-4.0-generate-001`, `veo-2.0-generate-001`, `text-embedding-004`)
-- **Database:** PostgreSQL with `pgvector` for persistent storage and semantic search capabilities.
+- **Database:** PostgreSQL for persistent storage.
 - **File Handling:** Multer for file uploads and server-side storage.
+
+---
+
+## 📂 Project Structure
+
+A brief overview of the key directories and files in this project:
+
+```
+/
+├── components/         # React components for the UI
+│   ├── icons/          # SVG icon components
+│   └── ...             # Panel, modal, and other UI components
+├── services/           # Functions for communicating with the backend API
+├── css/                # CSS files for standalone HTML pages
+├── js/                 # JavaScript for standalone HTML pages
+├── public/             # Static assets (not present, but can be added)
+├── server.ts           # The main backend Express server file
+├── App.tsx             # The main frontend React application component
+├── types.ts            # Shared TypeScript type definitions
+├── README.md           # This file
+└── package.json        # Project dependencies and scripts
+```
 
 ---
 
@@ -38,7 +59,7 @@ Follow these steps to get the MYTHOS DASHBOARD running on your local machine. Fo
 
 ### 1. Prerequisites
 
-You must have [Node.js](https://nodejs.org/) (v18+ recommended) and a running [PostgreSQL](https://www.postgresql.org/download/) instance (v14+ recommended) with the `pgvector` extension enabled on your computer.
+You must have [Node.js](https://nodejs.org/) (v18+ recommended) and a running [PostgreSQL](https://www.postgresql.org/download/) instance (v14+ recommended) on your computer.
 
 ### 2. Clone & Install
 
@@ -54,8 +75,8 @@ npm install
 
 The backend server requires API keys and database connection details.
 
-1.  Create a new file named `.env` in the root directory.
-2.  Add your secret API keys and database credentials to this file. See the example below.
+1.  Create a new file named `.env` in the root directory by copying the `.env.example` file.
+2.  Add your secret API keys and database credentials to this `.env` file.
 
 ```
 # === API KEYS ===
@@ -70,9 +91,6 @@ ELEVENLABS_API_KEY="your...elevenlabs...key...here"
 PORT=3001
 
 # === POSTGRESQL DATABASE CONNECTION ===
-# IMPORTANT: For pgvector, use a connection string if your provider gives one.
-# Otherwise, fill out the individual variables.
-# PG_CONNECTION_STRING="postgres://user:password@host:port/database"
 PG_USER="your_postgres_username"
 PG_HOST="localhost"
 PG_DATABASE="your_database_name"
@@ -80,7 +98,7 @@ PG_PASSWORD="your_postgres_password"
 PG_PORT=5432
 ```
 
-**Important:** Your `.env` file contains sensitive information and should never be committed to version control.
+**Important:** Your `.env` file contains sensitive information and should never be committed to version control. The provided `.gitignore` file already excludes it.
 
 ### 4. Run the Application
 
@@ -88,7 +106,7 @@ The application consists of a backend server and a frontend client, which must b
 
 **Terminal 1: Start the Backend Server**
 
-This command starts the Node.js/Express server. On the first run, it will automatically create the necessary tables in your database.
+This command starts the Node.js/Express server. On the first run, it will automatically create the necessary tables and indexes in your database.
 
 ```bash
 npm run server

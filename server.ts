@@ -115,8 +115,15 @@ const initializeDb = async () => {
             );
         `);
         console.log('Database tables are ready.');
+
+        // Add indexes for performance
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_agent_activity_client_message_id ON agent_activity (client_message_id);`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_images_client_message_id ON images (client_message_id);`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_rag_documents_repository ON rag_documents (repository);`);
+        console.log('Database indexes are ready.');
+
     } catch (err) {
-        console.error('Error initializing database tables:', err);
+        console.error('Error initializing database:', err);
     }
 };
 
