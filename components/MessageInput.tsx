@@ -238,9 +238,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
         const blob = await response.blob();
         const file = new File([blob], image.filename, { type: blob.type });
 
-        // Since onToolChange is gone, we can't switch tool here.
-        // This functionality might need rethinking, or the parent can handle it.
-        // For now, let's just load the image.
         removeImageFile();
         setImageFile(file);
         setImagePreviewUrl(URL.createObjectURL(file));
@@ -309,45 +306,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
           </button>
         </div>
       )}
-      <div className="flex items-end w-full bg-secondary rounded-lg border border-accent focus-within:ring-2 focus-within:ring-brand transition-shadow duration-200">
-        <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          rows={1}
-          className="w-full flex-1 bg-transparent text-text-primary placeholder-text-secondary py-4 px-4 resize-none focus:outline-none"
-          disabled={isLoading || textInputDisabled}
-        />
-        <div className="flex items-center space-x-2 pr-2 pb-2">
-           {activeTool === 'VIDEO_GEN' && isImageAvailableForVideo && (
-            <button
-              onClick={handleUseLastImage}
-              disabled={isLoading || !input.trim()}
-              className="p-2 rounded-full bg-indigo-500 text-white hover:bg-indigo-600 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 text-xs whitespace-nowrap"
-              aria-label="Use Last Image for Video"
-              title="Use Last Generated Image"
-            >
-              Use Last Image
-            </button>
-           )}
-          <button
-            onClick={handleSend}
-            disabled={sendDisabled}
-            className="p-2 rounded-full bg-brand text-white hover:bg-brand-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200"
-            aria-label="Send message"
-          >
-            {isLoading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              <SendIcon />
-            )}
-          </button>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between mt-2">
+      
+      <div className="flex items-end w-full bg-secondary rounded-lg border border-accent focus-within:ring-2 focus-within:ring-brand transition-shadow duration-200 p-2 gap-2">
         <div className="flex items-center gap-1">
           {showCamera && <button
             onClick={() => imageFileInputRef.current?.click()}
@@ -374,18 +334,51 @@ const MessageInput: React.FC<MessageInputProps> = ({
             <AudioIcon />
           </button>}
         </div>
-
-        {isSpeechSupported && (
+        <textarea
+          ref={textareaRef}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          rows={1}
+          className="w-full flex-1 bg-transparent text-text-primary placeholder-text-secondary resize-none focus:outline-none"
+          disabled={isLoading || textInputDisabled}
+        />
+        <div className="flex items-center space-x-1">
+           {activeTool === 'VIDEO_GEN' && isImageAvailableForVideo && (
+            <button
+              onClick={handleUseLastImage}
+              disabled={isLoading || !input.trim()}
+              className="p-2 rounded-full bg-indigo-500 text-white hover:bg-indigo-600 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 text-xs whitespace-nowrap"
+              aria-label="Use Last Image for Video"
+              title="Use Last Generated Image"
+            >
+              Use Last Image
+            </button>
+           )}
+           {isSpeechSupported && (
+              <button
+                  onClick={handleToggleRecording}
+                  disabled={isLoading}
+                  className={`p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 ${isRecording ? 'text-red-400 animate-pulse' : ''}`}
+                  aria-label={isRecording ? 'Stop recording' : 'Start recording'}
+                  >
+                  {isRecording ? <StopCircleIcon /> : <MicrophoneIcon />}
+              </button>
+            )}
           <button
-              onClick={handleToggleRecording}
-              disabled={isLoading}
-              className={`flex items-center gap-2 p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 ${isRecording ? 'text-red-400' : ''}`}
-              aria-label={isRecording ? 'Stop recording' : 'Start recording'}
-              >
-              {isRecording ? <StopCircleIcon /> : <MicrophoneIcon />}
-              {isRecording && <span className="text-xs text-red-400 animate-pulse">Recording...</span>}
+            onClick={handleSend}
+            disabled={sendDisabled}
+            className="p-2 rounded-full bg-brand text-white hover:bg-brand-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200"
+            aria-label="Send message"
+          >
+            {isLoading ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            ) : (
+              <SendIcon />
+            )}
           </button>
-        )}
+        </div>
       </div>
 
       <input
