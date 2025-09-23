@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { Part } from '@google/genai';
 import { synthesizeSpeech, generateImageFromPrompt, generateVideo, checkVideoOperationStatus, fetchGallery, detectContentSafety, submitFeedback, fetchGenerationStream, analyzeImageOnBackend, generateVideoFromLastImage, analyzeAudioForSunoStyle, generateSunoLyrics, convertAudioToMidi } from './services/geminiService';
@@ -335,11 +336,6 @@ export const App: React.FC = () => {
     let newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setIsLoading(true);
-
-    const currentHistory = newMessages.filter(m => (m.role !== MessageRole.MODEL || !m.isError) && m.id !== 'init').map(m => ({
-        role: m.role,
-        parts: [{ text: m.operator ? `[OPERATOR: ${m.operator.name}]\n${m.content}` : m.content }]
-    }));
     
     try {
         if (tool === 'AGENT_HUB') {
@@ -348,6 +344,14 @@ export const App: React.FC = () => {
                 setIsLoading(false);
                 return;
             }
+
+            // Start with the current history, including the user's latest message.
+            // This variable will be updated after each agent responds.
+            let conversationHistory = newMessages.filter(m => (m.role !== MessageRole.MODEL || !m.isError) && m.id !== 'init').map(m => ({
+                role: m.role,
+                parts: [{ text: m.operator ? `[OPERATOR: ${m.operator.name}]\n${m.content}` : m.content }]
+            }));
+
             const agentsToQuery = Array.from(activeAgents);
             for (const agentId of agentsToQuery) {
                  const agent = ALL_AGENTS.find(a => a.id === agentId);
@@ -356,7 +360,7 @@ export const App: React.FC = () => {
                  const responseMessageId = window.crypto.randomUUID();
                  setMessages(prev => [...prev, { id: responseMessageId, role: MessageRole.MODEL, content: '...', agent: agent }]);
                  
-                 const reader = await fetchGenerationStream(tool, userPrompt, file, currentHistory, responseMessageId, [agentId]);
+                 const reader = await fetchGenerationStream(tool, userPrompt, file, conversationHistory, responseMessageId, [agentId]);
                  const decoder = new TextDecoder();
                  let responseText = '';
 
@@ -376,12 +380,17 @@ export const App: React.FC = () => {
                         msg.id === responseMessageId ? { ...msg, content: responseText } : msg
                     ));
                  }
-                 // Add the final response to history for the next agent
-                 currentHistory.push({ role: MessageRole.MODEL, parts: [{ text: responseText }]});
+                 // IMPORTANT: Add the agent's full response to the history.
+                 // This ensures the next agent in the sequence has the full context.
+                 conversationHistory.push({ role: MessageRole.MODEL, parts: [{ text: responseText }]});
             }
 
         } else {
              const responseMessageId = window.crypto.randomUUID();
+             const currentHistory = newMessages.filter(m => (m.role !== MessageRole.MODEL || !m.isError) && m.id !== 'init').map(m => ({
+                role: m.role,
+                parts: [{ text: m.operator ? `[OPERATOR: ${m.operator.name}]\n${m.content}` : m.content }]
+            }));
              const reader = await fetchGenerationStream(tool, userPrompt, file, currentHistory, responseMessageId, []);
              const decoder = new TextDecoder();
              let responseText = '';

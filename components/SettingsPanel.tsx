@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import CloseIcon from './icons/CloseIcon';
 
@@ -14,6 +15,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ apiKey, onApiKeySave, onC
   useEffect(() => {
     setLocalApiKey(apiKey);
   }, [apiKey]);
+
+  const handleApiKeyInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalApiKey(event.target.value);
+  };
 
   const handleSave = () => {
     onApiKeySave(localApiKey);
@@ -40,7 +45,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ apiKey, onApiKeySave, onC
             type="password"
             id="apiKey"
             value={localApiKey}
-            onChange={(e) => setLocalApiKey(e.target.value)}
+            onChange={handleApiKeyInputChange}
             placeholder="Enter your Gemini API Key"
             className="w-full bg-accent text-text-primary placeholder-text-secondary rounded-lg p-2 border border-accent focus:ring-2 focus:ring-brand focus:outline-none"
           />
