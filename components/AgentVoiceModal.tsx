@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { Agent, TrainingSample } from '../types';
 import { addTrainingSample, deleteTrainingSample, getTrainingSamplesForAgent, updateTrainingSampleTranscript } from '../services/dbService';
@@ -5,17 +7,18 @@ import { transcribeAudioSample } from '../services/geminiService';
 import CloseIcon from './icons/CloseIcon';
 import UploadIcon from './icons/UploadIcon';
 import FileIcon from './icons/FileIcon';
+import { useAgents } from '../contexts/AgentsContext';
 
 interface AgentVoiceModalProps {
   agent: Agent;
-  onClose: () => void;
   onDataUpdate: () => void; // To refresh the main app's sample list
 }
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500 MB for large training samples
 const ACCEPTED_AUDIO_TYPES = ['audio/mpeg', 'audio/wav', 'audio/webm', 'audio/mp3', 'audio/x-wav', 'audio/flac'];
 
-const AgentVoiceModal: React.FC<AgentVoiceModalProps> = ({ agent, onClose, onDataUpdate }) => {
+const AgentVoiceModal: React.FC<AgentVoiceModalProps> = ({ agent, onDataUpdate }) => {
+  const { handleCloseVoiceModal } = useAgents();
   const [samples, setSamples] = useState<TrainingSample[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [transcribingId, setTranscribingId] = useState<number | null>(null);
@@ -120,11 +123,11 @@ const AgentVoiceModal: React.FC<AgentVoiceModalProps> = ({ agent, onClose, onDat
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50" onClick={handleCloseVoiceModal}>
       <div className="w-full max-w-3xl max-h-[90vh] bg-secondary rounded-lg shadow-xl flex flex-col" onClick={(e) => e.stopPropagation()}>
         <header className="p-4 border-b border-accent flex justify-between items-center flex-shrink-0">
           <h2 className="text-xl font-bold text-text-primary">Voice Training: {agent.name} <span className="text-lg">{agent.sigil}</span></h2>
-          <button onClick={onClose} className="p-1 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent transition-colors" aria-label="Close modal">
+          <button onClick={handleCloseVoiceModal} className="p-1 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent transition-colors" aria-label="Close modal">
             <CloseIcon />
           </button>
         </header>

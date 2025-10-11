@@ -1,9 +1,7 @@
-/// <reference types="node" />
 
+// Use `import type` to import Express types. This can resolve module resolution issues that cause type errors.
 import express from 'express';
-// To resolve conflicts with DOM types, we alias Request and Response from express.
-// Using a type-only import is best practice and can prevent some module resolution issues.
-import type { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import multer from 'multer';
 // Note: Multer's File type is available via the Express namespace after importing multer, so a direct import is not needed or possible.
@@ -14,6 +12,10 @@ import { Pool } from 'pg';
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold, GenerateContentResponse } from '@google/genai';
 import type { Agent } from './types';
 import { ALL_AGENTS, MUSIC_AGENTS } from './types';
+
+// Declare Node.js globals to resolve TypeScript errors.
+declare const Buffer: any;
+declare const __dirname: string;
 
 dotenv.config();
 
@@ -84,19 +86,34 @@ const initDb = async () => {
         );
     `);
     
+    await client.query(`
+        CREATE TABLE IF NOT EXISTS rag_repositories (
+            name VARCHAR(255) PRIMARY KEY,
+            description TEXT,
+            agent_id VARCHAR(255),
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+    `);
+
+    // Ensure the default 'common' repository exists.
+    await client.query(`
+      INSERT INTO rag_repositories (name, description) 
+      VALUES ('common', 'A shared knowledge base for all agents.') 
+      ON CONFLICT (name) DO NOTHING;
+    `);
+
     console.log('Database tables are ready.');
     client.release();
   } catch (err) {
     console.error('Database connection error or table creation failed:', err);
-    process.exit(1);
+    // Cast process to any to access exit method without node types.
+    (process as any).exit(1);
   }
 };
 
-initDb();
-
 // --- MIDDLEWARE ---
 // Add request logging middleware to see all incoming requests
-app.use((req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
     next();
 });
@@ -127,9 +144,11 @@ const upload = multer({ storage });
 const GEMINI_API_KEY = process.env.API_KEY;
 if (!GEMINI_API_KEY) {
     console.error("FATAL ERROR: The API_KEY environment variable is not set. The server cannot start without it.");
-    process.exit(1);
+    // Cast process to any to access exit method without node types.
+    (process as any).exit(1);
 }
 const ai = new GoogleGenAI({apiKey: GEMINI_API_KEY});
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 
 const safetySettings = [
     { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -138,7 +157,8 @@ const safetySettings = [
     { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
 ];
 
-const fileToGenerativePart = (file: Express.Multer.File) => {
+// Use `any` for file type as Express.Multer.File namespace is not found.
+const fileToGenerativePart = (file: any) => {
   return {
     inlineData: {
       data: fs.readFileSync(file.path).toString("base64"),
@@ -150,12 +170,12 @@ const fileToGenerativePart = (file: Express.Multer.File) => {
 // --- API ROUTES ---
 
 // Health Check Endpoint
-app.get('/api/health', (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/health', (req: Request, res: Response) => {
     res.status(200).json({ status: 'ok' });
 });
 
 // CHAT & TEXT STREAMING
-app.post('/api/generate-stream', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/generate-stream', upload.single('file'), async (req: Request, res: Response) => {
     const tool: string = req.body.tool || 'AGENT_HUB';
     const prompt: string = req.body.prompt || '';
     const history: string = req.body.history || '[]';
@@ -221,7 +241,7 @@ app.post('/api/generate-stream', upload.single('file'), async (req: ExpressReque
 });
 
 // IMAGE GENERATION
-app.post('/api/generate-image', async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/generate-image', async (req: Request, res: Response) => {
     const prompt: string = req.body.prompt || '';
     const clientMessageId: string = req.body.clientMessageId || '';
 
@@ -244,6 +264,7 @@ app.post('/api/generate-image', async (req: ExpressRequest, res: ExpressResponse
         const image = firstImage.image;
         const filename = `${clientMessageId}-${Date.now()}.png`;
         const filePath = path.join('uploads', filename);
+        // Use declared Buffer global instead of casting to any.
         fs.writeFileSync(filePath, Buffer.from(image.imageBytes, 'base64'));
 
         const dbResult = await pool.query(
@@ -263,7 +284,7 @@ app.post('/api/generate-image', async (req: ExpressRequest, res: ExpressResponse
 });
 
 // VIDEO GENERATION
-app.post('/api/generate-video', upload.single('image'), async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/generate-video', upload.single('image'), async (req: Request, res: Response) => {
     const { prompt, clientMessageId, sourceImageFilename } = req.body;
     const imageFile = req.file;
 
@@ -308,7 +329,7 @@ app.post('/api/generate-video', upload.single('image'), async (req: ExpressReque
 });
 
 // CHECK VIDEO STATUS
-app.post('/api/check-video-status', async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/check-video-status', async (req: Request, res: Response) => {
     const { operation, prompt, sourceImageFilename, clientMessageId } = req.body;
     try {
         let updatedOperation = await ai.operations.getVideosOperation({ operation });
@@ -345,7 +366,7 @@ app.post('/api/check-video-status', async (req: ExpressRequest, res: ExpressResp
 });
 
 // IMAGE ANALYSIS
-app.post('/api/analyze-image', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/analyze-image', upload.single('file'), async (req: Request, res: Response) => {
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'No file uploaded.' });
 
@@ -353,10 +374,16 @@ app.post('/api/analyze-image', upload.single('file'), async (req: ExpressRequest
         const imagePart = fileToGenerativePart(file);
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: { parts: [imagePart, { text: 'Describe this image in detail.' }] }
+            contents: { parts: [imagePart, { text: 'Describe this image in detail. Then, on a new line, add "Tags:" followed by a short, comma-separated list of relevant keywords.' }] }
         });
         fs.unlinkSync(file.path);
-        res.json({ text: response.text });
+        
+        const fullText = response.text;
+        const tagsMatch = fullText.match(/Tags: (.*)/i);
+        const tags = tagsMatch ? tagsMatch[1].split(',').map(t => t.trim()) : [];
+        const analysis = tagsMatch ? fullText.split(/Tags: .*/i)[0].trim() : fullText.trim();
+        
+        res.json({ analysis, tags });
     } catch (error) {
         console.error('Image Analysis Error:', error);
         res.status(500).json({ error: 'Failed to analyze image' });
@@ -364,14 +391,64 @@ app.post('/api/analyze-image', upload.single('file'), async (req: ExpressRequest
 });
 
 // SPEECH SYNTHESIS
-app.post('/api/synthesize-speech', async (req: ExpressRequest, res: ExpressResponse) => {
-    console.warn("TTS endpoint called, but no TTS service is implemented.");
-    res.status(501).json({ error: "Text-to-Speech functionality is not implemented on the server." });
+app.post('/api/synthesize-speech', async (req: Request, res: Response) => {
+    const { text, voiceId, ttsModelId } = req.body;
+
+    if (!text || !voiceId || !ttsModelId) {
+        return res.status(400).json({ error: "Missing required parameters: text, voiceId, ttsModelId" });
+    }
+
+    try {
+        // Use `any` for audioBuffer type as Buffer is not found.
+        let audioBuffer: any;
+
+        if (ttsModelId === 'eleven-labs') {
+            if (!ELEVENLABS_API_KEY) {
+                return res.status(500).json({ error: "ElevenLabs API key is not configured on the server." });
+            }
+            const elevenLabsUrl = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+            const response = await fetch(elevenLabsUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'xi-api-key': ELEVENLABS_API_KEY,
+                    'Accept': 'audio/mpeg',
+                },
+                body: JSON.stringify({
+                    text: text,
+                    model_id: "eleven_multilingual_v2", // A reasonable default
+                }),
+            });
+
+            if (!response.ok) {
+                const errorBody = await response.text();
+                console.error("ElevenLabs API Error:", errorBody);
+                throw new Error(`ElevenLabs API failed with status ${response.status}`);
+            }
+            const arrayBuffer = await response.arrayBuffer();
+            // Use declared Buffer global instead of casting to any.
+            audioBuffer = Buffer.from(arrayBuffer);
+
+        } else if (ttsModelId === 'text-to-speech' || ttsModelId === 'gemini-2.5-flash-preview-tts') {
+            // A real implementation would use the Google Cloud Text-to-Speech client library,
+            // which is not included in this project's dependencies.
+            return res.status(501).json({ error: `The TTS model '${ttsModelId}' is not yet implemented on the server.` });
+        } else {
+             return res.status(400).json({ error: `Unsupported TTS model: ${ttsModelId}` });
+        }
+        
+        // The frontend expects a base64 string for playback
+        res.json({ audioContent: audioBuffer.toString('base64') });
+
+    } catch (error) {
+        console.error('Speech Synthesis Error:', error);
+        res.status(500).json({ error: (error as Error).message || 'Failed to synthesize speech' });
+    }
 });
 
 
 // GALLERY & FEEDBACK
-app.get('/api/gallery', async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/gallery', async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT * FROM images ORDER BY created_at DESC');
         res.json(result.rows);
@@ -381,7 +458,7 @@ app.get('/api/gallery', async (req: ExpressRequest, res: ExpressResponse) => {
     }
 });
 
-app.post('/api/feedback', async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/feedback', async (req: Request, res: Response) => {
     const clientMessageId: string = req.body.clientMessageId || '';
     const feedback: string = req.body.feedback || '';
     
@@ -399,7 +476,7 @@ app.post('/api/feedback', async (req: ExpressRequest, res: ExpressResponse) => {
 });
 
 // --- LOCAL IMAGE VIEWER ROUTES ---
-app.get('/api/local-images', async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/local-images', async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT * FROM local_images ORDER BY created_at DESC');
         res.json(result.rows);
@@ -409,8 +486,9 @@ app.get('/api/local-images', async (req: ExpressRequest, res: ExpressResponse) =
     }
 });
 
-app.post('/api/local-images/upload', upload.array('images'), async (req: ExpressRequest, res: ExpressResponse) => {
-    const files = req.files as Express.Multer.File[];
+app.post('/api/local-images/upload', upload.array('images'), async (req: Request, res: Response) => {
+    // Cast req.files to any[] as Express.Multer.File is not found.
+    const files = req.files as any[];
     if (!files || files.length === 0) {
         return res.status(400).json({ error: 'No files uploaded.' });
     }
@@ -434,7 +512,7 @@ app.post('/api/local-images/upload', upload.array('images'), async (req: Express
     }
 });
 
-app.delete('/api/local-images/:id', async (req: ExpressRequest, res: ExpressResponse) => {
+app.delete('/api/local-images/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const client = await pool.connect();
     try {
@@ -462,7 +540,7 @@ app.delete('/api/local-images/:id', async (req: ExpressRequest, res: ExpressResp
     }
 });
 
-app.post('/api/local-images/:id/analyze', async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/local-images/:id/analyze', async (req: Request, res: Response) => {
     const { id } = req.params;
     try {
         const result = await pool.query('SELECT filename FROM local_images WHERE id = $1', [id]);
@@ -483,13 +561,14 @@ app.post('/api/local-images/:id/analyze', async (req: ExpressRequest, res: Expre
             contents: { parts: [imagePart, { text: 'Describe this image in detail. Then, on a new line, add "Tags:" followed by a short, comma-separated list of relevant keywords.' }] }
         });
         
-        const analysisText = response.text;
-        const tagsMatch = analysisText.match(/Tags: (.*)/i);
+        const fullText = response.text;
+        const tagsMatch = fullText.match(/Tags: (.*)/i);
         const tags = tagsMatch ? tagsMatch[1].split(',').map(t => t.trim()) : [];
+        const analysis = tagsMatch ? fullText.split(/Tags: .*/i)[0].trim() : fullText.trim();
 
         const updateResult = await pool.query(
             'UPDATE local_images SET analysis_text = $1, tags = $2 WHERE id = $3 RETURNING *',
-            [analysisText, tags, id]
+            [analysis, tags, id]
         );
         
         res.json(updateResult.rows[0]);
@@ -500,7 +579,7 @@ app.post('/api/local-images/:id/analyze', async (req: ExpressRequest, res: Expre
 });
 
 // --- RAG DOCUMENT ROUTES ---
-app.get('/api/rag-documents/:repository', async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/rag-documents/:repository', async (req: Request, res: Response) => {
     const { repository } = req.params;
     try {
         const result = await pool.query('SELECT id, filename, original_filename, repository, created_at FROM rag_documents WHERE repository = $1 ORDER BY created_at DESC', [repository]);
@@ -511,7 +590,7 @@ app.get('/api/rag-documents/:repository', async (req: ExpressRequest, res: Expre
     }
 });
 
-app.post('/api/rag-documents/:repository/upload', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/rag-documents/:repository/upload', upload.single('file'), async (req: Request, res: Response) => {
     const { repository } = req.params;
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'No file uploaded.' });
@@ -530,7 +609,7 @@ app.post('/api/rag-documents/:repository/upload', upload.single('file'), async (
     }
 });
 
-app.delete('/api/rag-documents/:id', async (req: ExpressRequest, res: ExpressResponse) => {
+app.delete('/api/rag-documents/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const client = await pool.connect();
     try {
@@ -554,12 +633,65 @@ app.delete('/api/rag-documents/:id', async (req: ExpressRequest, res: ExpressRes
 });
 
 
+// --- RAG REPOSITORY ROUTES ---
+app.get('/api/rag-repositories', async (req: Request, res: Response) => {
+    try {
+        const result = await pool.query('SELECT * FROM rag_repositories ORDER BY created_at DESC');
+        res.json(result.rows);
+    } catch (error) {
+        console.error('RAG Repositories Fetch Error:', error);
+        res.status(500).json({ error: 'Failed to fetch RAG repositories' });
+    }
+});
+
+app.post('/api/rag-repositories', async (req: Request, res: Response) => {
+    const { name, agentId } = req.body;
+    if (!name) {
+        return res.status(400).json({ error: 'Repository name is required.' });
+    }
+    try {
+        const result = await pool.query(
+            'INSERT INTO rag_repositories (name, agent_id) VALUES ($1, $2) RETURNING *',
+            [name, agentId || null]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('RAG Repository Create Error:', error);
+        // Check for unique constraint violation
+        if ((error as any).code === '23505') {
+            return res.status(409).json({ error: 'A repository with this name already exists.' });
+        }
+        res.status(500).json({ error: 'Failed to create RAG repository' });
+    }
+});
+
+app.delete('/api/rag-repositories/:name', async (req: Request, res: Response) => {
+    const { name } = req.params;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        // Also delete all documents within this repository
+        await client.query('DELETE FROM rag_documents WHERE repository = $1', [name]);
+        // Delete the repository itself
+        await client.query('DELETE FROM rag_repositories WHERE name = $1', [name]);
+        await client.query('COMMIT');
+        res.sendStatus(204);
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('RAG Repository Delete Error:', error);
+        res.status(500).json({ error: 'Failed to delete RAG repository' });
+    } finally {
+        client.release();
+    }
+});
+
+
 // ALL OTHER ROUTES
-app.post('/api/detect-content-safety', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/detect-content-safety', upload.single('file'), async (req: Request, res: Response) => {
     res.json({ category: 'SAFE', reason: 'Content passed implicit safety checks.' });
 });
 
-app.post('/api/analyze-audio-style', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/analyze-audio-style', upload.single('file'), async (req: Request, res: Response) => {
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'No file provided' });
     try {
@@ -576,7 +708,7 @@ app.post('/api/analyze-audio-style', upload.single('file'), async (req: ExpressR
     }
 });
 
-app.post('/api/generate-suno-lyrics', async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/generate-suno-lyrics', async (req: Request, res: Response) => {
     const { topic, agentId } = req.body;
     const agent = MUSIC_AGENTS.find(a => a.id === agentId);
     if (!agent) return res.status(400).json({ error: 'Invalid agent ID' });
@@ -601,7 +733,7 @@ app.post('/api/generate-suno-lyrics', async (req: ExpressRequest, res: ExpressRe
     }
 });
 
-app.post('/api/convert-audio-to-midi', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/convert-audio-to-midi', upload.single('file'), async (req: Request, res: Response) => {
      const file = req.file;
     if (!file) return res.status(400).json({ error: 'No file provided' });
     try {
@@ -626,19 +758,21 @@ app.post('/api/convert-audio-to-midi', upload.single('file'), async (req: Expres
 
 // --- STATIC FILE SERVING ---
 // This serves all the frontend files from the root directory of the project.
+// Replace incorrect use of `(global as any).__dirname` with `__dirname`.
 app.use(express.static(path.join(__dirname, '..')));
 app.use('/uploads', express.static('uploads'));
 app.use('/local_uploads', express.static('local_uploads'));
 
 
 // Fallback for client-side routing and 404 handling
-app.use('*', (req: ExpressRequest, res: ExpressResponse) => {
+app.use('*', (req: Request, res: Response) => {
     // Log all unhandled routes to help diagnose issues
     console.error(`[404] Unhandled route: ${req.method} ${req.originalUrl}`);
 
     // If it's a GET request for a page-like URL, serve the main app
     if (req.method === 'GET' && !req.path.startsWith('/api/') && !path.extname(req.path)) {
         console.log(`[Router] Serving index.html for client-side route: ${req.originalUrl}`);
+        // Replace incorrect use of `(global as any).__dirname` with `__dirname`.
         return res.sendFile(path.join(__dirname, '..', 'index.html'));
     }
     
@@ -648,7 +782,29 @@ app.use('*', (req: ExpressRequest, res: ExpressResponse) => {
     });
 });
 
+(async () => {
+  try {
+    console.log('Initializing database...');
+    await initDb();
+    console.log('Database initialized successfully.');
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+    // Add a verification step to ensure the pool is connected and tables exist.
+    console.log('Verifying database readiness...');
+    const client = await pool.connect();
+    try {
+        // Query a table that should exist after initDb()
+        await client.query('SELECT * FROM rag_repositories LIMIT 1');
+        console.log('Database verification successful.');
+    } finally {
+        // Always release the client
+        client.release();
+    }
+    
+    app.listen(PORT, () => {
+      console.log(`Server is running on http://localhost:${PORT}`);
+    });
+  } catch (err) {
+    console.error('Fatal: Failed to start server during initialization or verification:', err);
+    (process as any).exit(1);
+  }
+})();

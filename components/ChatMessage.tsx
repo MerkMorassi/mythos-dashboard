@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import type { ChatMessage as Message } from '../types';
 import { MessageRole } from '../types';
@@ -12,17 +13,16 @@ import EditIcon from './icons/EditIcon';
 import CheckIcon from './icons/CheckIcon';
 import ThumbsUpIcon from './icons/ThumbsUpIcon';
 import ThumbsDownIcon from './icons/ThumbsDownIcon';
+import { useChat } from '../contexts/ChatContext';
 
 interface ChatMessageProps {
   message: Message;
-  onSpeak: (message: Message) => void;
   isSpeaking: boolean;
-  onInitiateEdit: (text: string) => void;
-  onFeedback: (messageId: string, feedback: 'like' | 'dislike') => void;
 }
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSpeak, isSpeaking, onInitiateEdit, onFeedback }) => {
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, isSpeaking }) => {
   const [copied, setCopied] = useState(false);
+  const { handleSpeak, onInitiateEdit, onFeedback } = useChat();
   const isUser = message.role === MessageRole.USER;
 
   if (!isUser && message.rejectionLevel && message.rejectionLevel > 0) {
@@ -61,6 +61,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSpeak, isSpeaking,
   const hasFeedbackButtons = !isUser && hasContent && !isPlaceholder;
   const agentAuthorName = message.agent ? message.agent.name : 'Assistant';
   const userAuthorName = message.operator ? message.operator.name : 'User';
+  const showProgressBar = typeof message.uploadProgress === 'number' && message.uploadProgress < 100;
 
   return (
     <div className={wrapperClasses}>
@@ -99,13 +100,32 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSpeak, isSpeaking,
             </div>
           )}
           {message.content && <p className="whitespace-pre-wrap">{message.content}</p>}
+          {showProgressBar && (
+            <div className="mt-2 h-2 w-full bg-accent rounded-full overflow-hidden">
+                <div 
+                    className="h-full bg-brand rounded-full transition-all duration-300 ease-linear" 
+                    style={{ width: `${message.uploadProgress}%` }}
+                ></div>
+            </div>
+          )}
+          {message.tags && message.tags.length > 0 && (
+              <div className="mt-3 pt-2 border-t border-accent/50">
+                  <div className="flex flex-wrap gap-2">
+                      {message.tags.map((tag, index) => (
+                          <span key={index} className="bg-accent text-text-primary text-xs font-semibold px-2.5 py-1 rounded-full">
+                              {tag}
+                          </span>
+                      ))}
+                  </div>
+              </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
           {!isUser && message.content && !isPlaceholder && (
             <>
               <button
-                onClick={() => onSpeak(message)}
+                onClick={() => handleSpeak(message)}
                 className="p-1 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent transition-colors"
                 aria-label={isSpeaking ? "Stop speaking" : "Read message aloud"}
               >

@@ -1,10 +1,9 @@
-
-
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import type { LocalImage } from '../types';
 import { fetchLocalImages, uploadLocalImages, deleteLocalImage, analyzeLocalImage } from '../services/geminiService';
 import CloseIcon from './icons/CloseIcon';
 import AnalyzeIcon from './icons/AnalyzeIcon';
+import { useTools } from '../contexts/ToolContext';
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
 
@@ -18,8 +17,10 @@ const LocalImageViewer: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const { isServerReady } = useTools();
 
   const loadImages = useCallback(async () => {
+    if (!isServerReady) return;
     try {
       setError(null);
       setIsLoading(true);
@@ -31,13 +32,17 @@ const LocalImageViewer: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isServerReady]);
 
   useEffect(() => {
     loadImages();
   }, [loadImages]);
 
   const handleFiles = useCallback(async (files: FileList) => {
+    if (!isServerReady) {
+        setError("Server not ready. Please try again in a moment.");
+        return;
+    }
     const newImages = Array.from(files).filter(file => file.type.startsWith('image/'));
     if (newImages.length === 0) return;
 
@@ -62,10 +67,14 @@ const LocalImageViewer: React.FC = () => {
     } finally {
       setIsUploading(false);
     }
-  }, [loadImages]);
+  }, [loadImages, isServerReady]);
   
   const handleDelete = async (e: React.MouseEvent, imageToDelete: LocalImage) => {
     e.stopPropagation();
+    if (!isServerReady) {
+        setError("Server not ready. Please try again.");
+        return;
+    }
     try {
         setImages(prev => prev.filter(img => img.id !== imageToDelete.id)); // Optimistic update
         await deleteLocalImage(imageToDelete.id);
@@ -78,6 +87,10 @@ const LocalImageViewer: React.FC = () => {
 
   const handleAnalyze = async (e: React.MouseEvent, imageToAnalyze: LocalImage) => {
       e.stopPropagation();
+      if (!isServerReady) {
+        setError("Server not ready. Please try again.");
+        return;
+      }
       setIsAnalyzing(true);
       try {
           const updatedImage = await analyzeLocalImage(imageToAnalyze.id);

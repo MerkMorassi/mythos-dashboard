@@ -1,5 +1,4 @@
 
-
 export enum MessageRole {
   USER = 'user',
   MODEL = 'model',
@@ -126,6 +125,8 @@ export interface ChatMessage {
   feedback?: 'like' | 'dislike' | null;
   agent?: Agent;
   operator?: Operator;
+  tags?: string[];
+  uploadProgress?: number;
 }
 
 export interface GalleryImage {
@@ -153,6 +154,13 @@ export interface RagDocument {
     original_filename: string;
     content: string;
     repository: string; // 'common' or agent_id
+    created_at: string;
+}
+
+export interface RagRepository {
+    name: string;
+    description: string | null;
+    agent_id?: string | null;
     created_at: string;
 }
 

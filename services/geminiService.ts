@@ -1,6 +1,7 @@
+
 import { GoogleGenAI } from '@google/genai';
 import type { Part } from '@google/genai';
-import type { GalleryImage, LocalImage, Tool, RagDocument } from '../types';
+import type { GalleryImage, LocalImage, Tool, RagDocument, RagRepository } from '../types';
 
 const API_BASE_URL = '/api';
 
@@ -31,6 +32,18 @@ export const fetchGenerationStream = async (
     method: 'POST',
     body: formData,
   });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Server responded with an error:", response.status, errorText);
+    if (response.status === 404) {
+        throw new Error(`API endpoint not found (/api/generate-stream). This is a common deployment issue. Please verify your hosting environment is configured to run a Node.js server and correctly route API requests, not just serve static files.`);
+    }
+    const preMatch = errorText.match(/<pre>(.*?)<\/pre>/);
+    const cleanError = preMatch ? preMatch[1] : `Server error: ${response.status}`;
+    throw new Error(cleanError);
+  }
+
   if (!response.body) {
     throw new Error("Response body is null");
   }
@@ -118,17 +131,49 @@ export async function checkVideoOperationStatus(operation: any, prompt: string, 
     return response.json();
 }
 
-export async function analyzeImageOnBackend(file: File, clientMessageId: string): Promise<{text: string}> {
+export function analyzeImageOnBackend(
+  file: File,
+  clientMessageId: string,
+  onProgress: (progress: number) => void
+): Promise<{ analysis: string; tags: string[] }> {
+  return new Promise((resolve, reject) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('clientMessageId', clientMessageId);
-    
-    const response = await fetch(`${API_BASE_URL}/analyze-image`, {
-        method: 'POST',
-        body: formData,
-    });
-    if (!response.ok) throw new Error('Failed to analyze image');
-    return response.json();
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_BASE_URL}/analyze-image`, true);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percentComplete = Math.round((event.loaded / event.total) * 100);
+        onProgress(percentComplete);
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const jsonResponse = JSON.parse(xhr.responseText);
+          resolve(jsonResponse);
+        } catch (e) {
+          reject(new Error('Failed to parse server response.'));
+        }
+      } else {
+        reject(new Error(`Server responded with status: ${xhr.status}`));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new Error('Network error during image analysis.'));
+    };
+
+    xhr.ontimeout = () => {
+      reject(new Error('The request timed out.'));
+    };
+
+    xhr.send(formData);
+  });
 }
 
 
@@ -265,6 +310,34 @@ export async function deleteRagDocument(id: number): Promise<Response> {
         method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to delete RAG document');
+    return response;
+}
+
+// --- RAG Repository Services ---
+export async function fetchRagRepositories(): Promise<RagRepository[]> {
+    const response = await fetch(`${API_BASE_URL}/rag-repositories`);
+    if (!response.ok) throw new Error('Failed to fetch RAG repositories');
+    return await response.json();
+}
+
+export async function createRagRepository(name: string, agentId?: string | null): Promise<RagRepository> {
+    const response = await fetch(`${API_BASE_URL}/rag-repositories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, agentId }),
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create RAG repository');
+    }
+    return await response.json();
+}
+
+export async function deleteRagRepository(name: string): Promise<Response> {
+    const response = await fetch(`${API_BASE_URL}/rag-repositories/${name}`, {
+        method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete RAG repository');
     return response;
 }
 

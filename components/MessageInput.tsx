@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { Tool, GalleryImage } from '../types';
 import SendIcon from './icons/SendIcon';
@@ -6,29 +7,31 @@ import MicrophoneIcon from './icons/MicrophoneIcon';
 import StopCircleIcon from './icons/StopCircleIcon';
 import PaperclipIcon from './icons/PaperclipIcon';
 import AudioIcon from './icons/AudioIcon';
-
-interface MessageInputProps {
-  input: string;
-  setInput: (value: string) => void;
-  onSend: (message: string, file: File | null) => void;
-  isLoading: boolean;
-  activeTool: Tool;
-  isImageAvailableForVideo: boolean;
-  onGenerateVideoFromLastImage: (prompt: string) => void;
-}
+import AlertTriangleIcon from './icons/AlertTriangleIcon';
+import CloseIcon from './icons/CloseIcon';
+import { useChat } from '../contexts/ChatContext';
+import { useTools } from '../contexts/ToolContext';
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
 
-const MessageInput: React.FC<MessageInputProps> = ({ 
-  input, setInput, onSend, isLoading, activeTool,
-  isImageAvailableForVideo, onGenerateVideoFromLastImage
-}) => {
+const MessageInput: React.FC = () => {
+  const {
+    input,
+    setInput,
+    onToolSend,
+    isLoading,
+    isImageAvailableForVideo,
+    onGenerateVideoFromLastImage
+  } = useChat();
+  const { activeTool } = useTools();
+  
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [docFile, setDocFile] = useState<File | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
   
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const imageFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -108,29 +111,32 @@ const MessageInput: React.FC<MessageInputProps> = ({
       URL.revokeObjectURL(imagePreviewUrl);
     }
     setImagePreviewUrl(null);
+    if (fileError) setFileError(null);
   };
   
   const removeDocFile = () => {
     setDocFile(null);
+    if (fileError) setFileError(null);
   };
 
   const removeAudioFile = () => {
     setAudioFile(null);
+    if (fileError) setFileError(null);
   };
 
   const handleImageFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
-    if (selectedFile && (selectedFile.type === 'image/jpeg' || selectedFile.type === 'image/png')) {
+    if (selectedFile) {
+      setFileError(null);
       if (selectedFile.size > MAX_FILE_SIZE) {
-        alert(`Image file is too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
-        event.target.value = '';
-        return;
+        setFileError(`Image file is too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
+      } else {
+        removeImageFile();
+        setImageFile(selectedFile);
+        setImagePreviewUrl(URL.createObjectURL(selectedFile));
+        removeDocFile();
+        removeAudioFile();
       }
-      removeImageFile();
-      setImageFile(selectedFile);
-      setImagePreviewUrl(URL.createObjectURL(selectedFile));
-      removeDocFile();
-      removeAudioFile();
     }
     event.target.value = '';
   };
@@ -138,14 +144,14 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const handleDocFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
+      setFileError(null);
       if (selectedFile.size > MAX_FILE_SIZE) {
-        alert(`Document file is too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
-        event.target.value = '';
-        return;
+        setFileError(`Document file is too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
+      } else {
+        setDocFile(selectedFile);
+        removeImageFile();
+        removeAudioFile();
       }
-      setDocFile(selectedFile);
-      removeImageFile();
-      removeAudioFile();
     }
     event.target.value = '';
   };
@@ -153,24 +159,24 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const handleAudioFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
+      setFileError(null);
       if (selectedFile.size > MAX_FILE_SIZE) {
-        alert(`Audio file is too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
-        event.target.value = '';
-        return;
+        setFileError(`Audio file is too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
+      } else {
+        setAudioFile(selectedFile);
+        removeImageFile();
+        removeDocFile();
       }
-      setAudioFile(selectedFile);
-      removeImageFile();
-      removeDocFile();
     }
     event.target.value = '';
   };
 
   const handleSend = () => {
-    if (isLoading) return;
+    if (isLoading || fileError) return;
     
     const fileToSend = imageFile || docFile || audioFile;
     if (input.trim() || fileToSend) {
-      onSend(input, fileToSend);
+      onToolSend(input, fileToSend);
       setInput('');
       removeImageFile();
       removeDocFile();
@@ -227,25 +233,55 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDraggingOver(false);
+    setFileError(null);
 
+    // Handle files from filesystem first
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const droppedFile = e.dataTransfer.files[0];
+      
+      if (droppedFile.size > MAX_FILE_SIZE) {
+        setFileError(`File is too large (${(droppedFile.size / 1024 / 1024).toFixed(1)}MB). Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
+        return;
+      }
+      
+      const { showCamera, showPaperclip, showAudioUpload } = getToolConfig();
+
+      removeImageFile();
+      removeDocFile();
+      removeAudioFile();
+
+      if (showCamera && droppedFile.type.startsWith('image/')) {
+        setImageFile(droppedFile);
+        setImagePreviewUrl(URL.createObjectURL(droppedFile));
+      } else if (showAudioUpload && droppedFile.type.startsWith('audio/')) {
+        setAudioFile(droppedFile);
+      } else if (showPaperclip) {
+        setDocFile(droppedFile);
+      } else {
+        setFileError(`The current tool (${activeTool}) does not support this file type.`);
+      }
+      return;
+    }
+
+    // Handle gallery images
     try {
-        const imageDataString = e.dataTransfer.getData('application/json');
-        if (!imageDataString) return;
+      const imageDataString = e.dataTransfer.getData('application/json');
+      if (!imageDataString) return;
 
-        const image: GalleryImage = JSON.parse(imageDataString);
-        
-        const response = await fetch(`/uploads/${image.filename}`);
-        const blob = await response.blob();
-        const file = new File([blob], image.filename, { type: blob.type });
+      const image: GalleryImage = JSON.parse(imageDataString);
+      const response = await fetch(`/uploads/${image.filename}`);
+      const blob = await response.blob();
+      const file = new File([blob], image.filename, { type: blob.type });
 
-        removeImageFile();
-        setImageFile(file);
-        setImagePreviewUrl(URL.createObjectURL(file));
-        setDocFile(null);
-        setInput(image.prompt);
-
+      removeImageFile();
+      setImageFile(file);
+      setImagePreviewUrl(URL.createObjectURL(file));
+      removeDocFile();
+      removeAudioFile();
+      setInput(image.prompt);
     } catch (error) {
-        console.error("Failed to handle dropped image:", error);
+      console.error("Failed to handle dropped image from gallery:", error);
+      setFileError("Failed to process dropped item from gallery.");
     }
   };
 
@@ -259,15 +295,31 @@ const MessageInput: React.FC<MessageInputProps> = ({
     setIsDraggingOver(false);
   };
 
-  const { placeholder, sendDisabled, showCamera, showPaperclip, showAudioUpload, textInputDisabled } = getToolConfig();
+  const { placeholder, sendDisabled: toolSendDisabled, showCamera, showPaperclip, showAudioUpload, textInputDisabled } = getToolConfig();
+  const sendDisabled = toolSendDisabled || !!fileError;
 
   return (
     <div 
-      className={`w-full border-2 border-dashed rounded-lg transition-colors ${isDraggingOver ? 'border-brand-hover' : 'border-transparent'}`}
+      className={`w-full border-2 border-dashed rounded-lg transition-colors ${isDraggingOver ? 'border-brand bg-brand/10' : 'border-transparent'}`}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
+      {fileError && (
+        <div className="flex items-center justify-between text-red-400 text-sm mb-2 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+            <div className="flex items-center gap-2">
+                <AlertTriangleIcon />
+                <span className="font-semibold">{fileError}</span>
+            </div>
+            <button 
+                onClick={() => setFileError(null)}
+                className="p-1 rounded-full text-red-300 hover:text-white hover:bg-red-500/30 transition-colors"
+                aria-label="Dismiss error"
+            >
+                <CloseIcon />
+            </button>
+        </div>
+      )}
       {(imagePreviewUrl && imageFile) && (
         <div className="relative inline-block mb-2 p-2 rounded-lg bg-[#202020] border border-accent">
           <img src={imagePreviewUrl} alt="Preview" className="max-h-32 rounded-lg" />

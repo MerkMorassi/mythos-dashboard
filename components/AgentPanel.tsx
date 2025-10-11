@@ -1,29 +1,46 @@
 
 
 import React, { useState } from 'react';
-import type { Agent, TrainingSample } from '../types';
 import CloseIcon from './icons/CloseIcon';
 import GripVerticalIcon from './icons/GripVerticalIcon';
 import VoiceTrainIcon from './icons/VoiceTrainIcon';
+import { useAgents } from '../contexts/AgentsContext';
+import { useTools } from '../contexts/ToolContext';
 
-interface AgentPanelProps {
-  agents: readonly Agent[];
-  allTrainingSamples: TrainingSample[];
-  onAgentsReorder: (reorderedAgents: readonly Agent[]) => void;
-  activeAgents: Set<string>;
-  onAgentToggle: (agentId: string) => void;
-  onToggleAll: () => void;
-  onClose: () => void;
-  onOpenVoiceModal: (agent: Agent) => void;
-  sortOrder: 'name' | 'specialty' | 'custom';
-  onSortOrderChange: (order: 'name' | 'specialty' | 'custom') => void;
-}
+const AgentPanel: React.FC = () => {
+  const {
+    displayedAgents,
+    setDisplayedAgents,
+    activeAgents,
+    handleAgentToggle,
+    handleToggleAll,
+    handleOpenVoiceModal,
+    // Fix: The property is named agentSortOrder in the context
+    agentSortOrder,
+    setAgentSortOrder,
+    saveAgentOrder,
+    isOrderDirty,
+    setIsOrderDirty,
+  } = useAgents();
+  const { allTrainingSamples } = useTools();
 
-const AgentPanel: React.FC<AgentPanelProps> = ({ 
-  agents, allTrainingSamples, onAgentsReorder, activeAgents, onAgentToggle, onToggleAll, onClose, onOpenVoiceModal, sortOrder, onSortOrderChange 
-}) => {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  
+  const handleSortChange = (newOrder: 'name' | 'specialty' | 'custom') => {
+      setAgentSortOrder(newOrder);
+      setIsOrderDirty(false);
+  }
+
+  const handleSaveClick = () => {
+      saveAgentOrder();
+      setSaveStatus('saving');
+      setTimeout(() => {
+          setSaveStatus('saved');
+          setTimeout(() => setSaveStatus('idle'), 1500);
+      }, 500);
+  }
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     setDraggedIndex(index);
@@ -47,12 +64,13 @@ const AgentPanel: React.FC<AgentPanelProps> = ({
       return;
     }
 
-    const reorderedAgents = [...agents];
+    const reorderedAgents = [...displayedAgents];
     const [draggedItem] = reorderedAgents.splice(draggedIndex, 1);
     reorderedAgents.splice(dropIndex, 0, draggedItem);
 
-    onAgentsReorder(reorderedAgents);
-    onSortOrderChange('custom');
+    setDisplayedAgents(reorderedAgents);
+    setAgentSortOrder('custom');
+    setIsOrderDirty(true);
     handleDragEnd();
   };
   
@@ -64,12 +82,14 @@ const AgentPanel: React.FC<AgentPanelProps> = ({
     return <div className="w-2 h-2 rounded-full bg-gray-500" title="No Training Data"></div>;
   };
 
+  const { setRightPanelContent } = useTools();
+
   return (
     <div className="w-full h-full bg-secondary flex flex-col">
       <div className="p-4 border-b border-accent flex justify-between items-center flex-shrink-0">
         <h2 className="text-lg font-semibold text-text-primary">Agents</h2>
         <button
-          onClick={onClose}
+          onClick={() => setRightPanelContent(null)}
           className="p-1 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent transition-colors"
           aria-label="Close agents panel"
         >
@@ -79,40 +99,56 @@ const AgentPanel: React.FC<AgentPanelProps> = ({
       <div className="flex-1 overflow-y-auto p-4">
         <div className="flex justify-between items-center mb-2">
             <div className="text-sm text-text-secondary">
-                Active: {activeAgents.size} / {agents.length}
+                Active: {activeAgents.size} / {displayedAgents.length}
             </div>
             <button
-                onClick={onToggleAll}
+                onClick={handleToggleAll}
                 className="text-sm text-brand-hover hover:text-text-primary font-semibold"
             >
-                {activeAgents.size === agents.length ? 'Deselect All' : 'Select All'}
+                {activeAgents.size === displayedAgents.length ? 'Deselect All' : 'Select All'}
             </button>
         </div>
         
         <div className="flex items-center gap-2 text-xs mb-4">
             <span className="text-text-secondary font-semibold">SORT BY:</span>
             <button
-                onClick={() => onSortOrderChange('name')}
-                className={`px-2 py-1 rounded transition-colors ${sortOrder === 'name' ? 'bg-brand text-white' : 'bg-accent text-text-secondary hover:bg-accent/70'}`}
+                onClick={() => handleSortChange('name')}
+                // Fix: Use agentSortOrder
+                className={`px-2 py-1 rounded transition-colors ${agentSortOrder === 'name' ? 'bg-brand text-white' : 'bg-accent text-text-secondary hover:bg-accent/70'}`}
             >
                 Name
             </button>
             <button
-                onClick={() => onSortOrderChange('specialty')}
-                className={`px-2 py-1 rounded transition-colors ${sortOrder === 'specialty' ? 'bg-brand text-white' : 'bg-accent text-text-secondary hover:bg-accent/70'}`}
+                onClick={() => handleSortChange('specialty')}
+                // Fix: Use agentSortOrder
+                className={`px-2 py-1 rounded transition-colors ${agentSortOrder === 'specialty' ? 'bg-brand text-white' : 'bg-accent text-text-secondary hover:bg-accent/70'}`}
             >
                 Specialty
             </button>
-             <button
-                disabled
-                className={`px-2 py-1 rounded transition-colors ${sortOrder === 'custom' ? 'bg-brand text-white' : 'bg-accent text-text-secondary opacity-50 cursor-not-allowed'}`}
-            >
-                Custom
-            </button>
+             {/* Fix: Use agentSortOrder */}
+             {agentSortOrder === 'custom' ? (
+                <button
+                    onClick={handleSaveClick}
+                    disabled={!isOrderDirty || saveStatus !== 'idle'}
+                    className={`px-2 py-1 rounded transition-colors w-24 text-center
+                        ${!isOrderDirty ? 'bg-brand text-white' : 'bg-green-600 text-white hover:bg-green-500'}
+                        ${saveStatus !== 'idle' ? 'bg-green-500' : ''}
+                        disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                    {saveStatus === 'saved' ? 'Saved ✓' : 'Save Order'}
+                </button>
+            ) : (
+                <button
+                    disabled
+                    className="px-2 py-1 rounded transition-colors bg-accent text-text-secondary opacity-50 cursor-not-allowed"
+                >
+                    Custom
+                </button>
+            )}
         </div>
 
         <div className="flex flex-col gap-2" onDragLeave={() => setDragOverIndex(null)}>
-            {agents.map((agent, index) => {
+            {displayedAgents.map((agent, index) => {
                 const isActive = activeAgents.has(agent.id);
                 const isDraggable = agent.id !== 'mythos_assistant';
                 const isBeingDragged = draggedIndex === index;
@@ -144,7 +180,7 @@ const AgentPanel: React.FC<AgentPanelProps> = ({
 
                         <div 
                             className="flex-1 flex items-center gap-4 cursor-pointer"
-                            onClick={() => onAgentToggle(agent.id)}
+                            onClick={() => handleAgentToggle(agent.id)}
                         >
                             <div className={`w-8 h-8 rounded-md flex items-center justify-center text-lg flex-shrink-0 ${isActive ? 'bg-brand text-white' : 'bg-primary'}`}>
                                 {agent.sigil}
@@ -159,7 +195,7 @@ const AgentPanel: React.FC<AgentPanelProps> = ({
                         </div>
 
                         <button 
-                            onClick={() => onOpenVoiceModal(agent)}
+                            onClick={() => handleOpenVoiceModal(agent)}
                             className="p-2 text-text-secondary hover:text-text-primary hover:bg-primary rounded-full"
                             aria-label={`Prepare training data for ${agent.name}`}
                         >
@@ -167,7 +203,7 @@ const AgentPanel: React.FC<AgentPanelProps> = ({
                         </button>
                         
                         <div 
-                            onClick={() => onAgentToggle(agent.id)}
+                            onClick={() => handleAgentToggle(agent.id)}
                             className={`w-5 h-5 rounded-sm border-2 flex items-center justify-center cursor-pointer flex-shrink-0 mr-1 ${isActive ? 'bg-brand border-brand-hover' : 'border-accent'}`}
                         >
                             {isActive && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}

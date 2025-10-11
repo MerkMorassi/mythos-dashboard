@@ -1,6 +1,7 @@
 
 
 
+
 import React from 'react';
 import type { GalleryImage } from '../types';
 import CloseIcon from './icons/CloseIcon';
