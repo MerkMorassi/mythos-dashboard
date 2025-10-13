@@ -1,7 +1,5 @@
-
-// Use `import type` to import Express types. This can resolve module resolution issues that cause type errors.
-import express from 'express';
-import type { Request, Response, NextFunction } from 'express';
+// FIX: Combined express imports to resolve type conflicts with Request, Response, and NextFunction, which were causing numerous errors throughout the file.
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import multer from 'multer';
 // Note: Multer's File type is available via the Express namespace after importing multer, so a direct import is not needed or possible.

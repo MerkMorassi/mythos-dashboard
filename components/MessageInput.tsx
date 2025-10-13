@@ -13,6 +13,10 @@ import { useChat } from '../contexts/ChatContext';
 import { useTools } from '../contexts/ToolContext';
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
+const ACCEPTED_IMAGE_TYPES = 'image/jpeg, image/png';
+const ACCEPTED_DOC_TYPES = '.txt,.md,.pdf';
+const ACCEPTED_CODE_TYPES = '.txt,.md,.pdf,.js,.ts,.py,.html,.css,.json';
+const ACCEPTED_AUDIO_TYPES = '.mp3,.wav';
 
 const MessageInput: React.FC = () => {
   const {
@@ -124,10 +128,63 @@ const MessageInput: React.FC = () => {
     if (fileError) setFileError(null);
   };
 
+  const validateFile = (file: File, acceptedTypesStr?: string): boolean => {
+    if (!acceptedTypesStr) return true; 
+
+    const acceptedTypes = acceptedTypesStr.split(',').map(t => t.trim().toLowerCase());
+    const fileExtension = `.${file.name.split('.').pop()?.toLowerCase()}`;
+
+    return acceptedTypes.some(type => {
+        if (type.startsWith('.')) {
+            return fileExtension === type;
+        } else if (type.endsWith('/*')) {
+            return file.type.startsWith(type.slice(0, -1));
+        }
+        return file.type.toLowerCase() === type;
+    });
+  };
+
+  const getToolConfig = useCallback(() => {
+    switch(activeTool) {
+      case 'AGENT_HUB':
+        return { placeholder: 'Send a message...', sendDisabled: isLoading || (!input.trim() && !imageFile && !docFile && !audioFile), showCamera: true, showPaperclip: true, showAudioUpload: true, acceptImage: ACCEPTED_IMAGE_TYPES, acceptDoc: ACCEPTED_CODE_TYPES, acceptAudio: ACCEPTED_AUDIO_TYPES };
+      case 'IMAGE_GEN':
+        return { placeholder: 'Describe an image to generate...', sendDisabled: isLoading || !input.trim(), showCamera: false, showPaperclip: false, showAudioUpload: false };
+      case 'CODE_GEN':
+        return { placeholder: 'Describe the code you want to create...', sendDisabled: isLoading || !input.trim(), showCamera: false, showPaperclip: false, showAudioUpload: false };
+      case 'TEXT_GEN':
+        return { placeholder: 'Describe the text you want to write, or upload a document...', sendDisabled: isLoading || (!input.trim() && !docFile), showCamera: false, showPaperclip: true, showAudioUpload: false, textInputDisabled: false, acceptDoc: ACCEPTED_CODE_TYPES };
+      case 'VIDEO_GEN':
+        return { placeholder: 'Describe a video... (optional image)', sendDisabled: isLoading || !input.trim(), showCamera: true, showPaperclip: false, showAudioUpload: false, acceptImage: ACCEPTED_IMAGE_TYPES };
+      case 'IMAGE_ANALYSIS':
+        return { placeholder: 'Upload a JPG or PNG image to analyze...', sendDisabled: isLoading || !imageFile, showCamera: true, showPaperclip: false, showAudioUpload: false, textInputDisabled: true, acceptImage: ACCEPTED_IMAGE_TYPES };
+      case 'CODE_ANALYSIS':
+        return { placeholder: 'Paste code to analyze, or upload a file...', sendDisabled: isLoading || (!input.trim() && !docFile), showCamera: false, showPaperclip: true, showAudioUpload: false, textInputDisabled: false, acceptDoc: ACCEPTED_CODE_TYPES };
+      case 'DOC_SUMMARY':
+        return { placeholder: 'Upload a document (.txt, .md, .pdf) to summarize...', sendDisabled: isLoading || !docFile, showCamera: false, showPaperclip: true, showAudioUpload: false, textInputDisabled: true, acceptDoc: ACCEPTED_DOC_TYPES };
+      case 'CONTENT_DETECTOR':
+        return { placeholder: 'Upload a document (.txt, .md, .pdf) to check for safety violations...', sendDisabled: isLoading || !docFile, showCamera: false, showPaperclip: true, showAudioUpload: false, textInputDisabled: true, acceptDoc: ACCEPTED_DOC_TYPES };
+      case 'AUDIO_ANALYSIS':
+        return { placeholder: 'Upload an audio file (.mp3, .wav) to analyze...', sendDisabled: isLoading || !audioFile, showCamera: false, showPaperclip: false, showAudioUpload: true, textInputDisabled: true, acceptAudio: ACCEPTED_AUDIO_TYPES };
+      case 'URL_CONTEXT':
+        return { placeholder: 'Paste a URL and ask a question...', sendDisabled: isLoading || !input.trim(), showCamera: false, showPaperclip: false, showAudioUpload: false };
+      case 'RAG_DB':
+        return { placeholder: 'Future RAG implementation space...', sendDisabled: true, showCamera: false, showPaperclip: false, showAudioUpload: false, textInputDisabled: true };
+      default:
+        return { placeholder: 'Send a message...', sendDisabled: false, showCamera: true, showPaperclip: true, showAudioUpload: false, acceptImage: ACCEPTED_IMAGE_TYPES, acceptDoc: ACCEPTED_CODE_TYPES, acceptAudio: ACCEPTED_AUDIO_TYPES };
+    }
+  }, [activeTool, isLoading, input, imageFile, docFile, audioFile]);
+
   const handleImageFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
       setFileError(null);
+      const { acceptImage } = getToolConfig();
+      if (!validateFile(selectedFile, acceptImage)) {
+        setFileError(`Invalid image type. Please use: ${acceptImage}.`);
+        event.target.value = '';
+        return;
+      }
       if (selectedFile.size > MAX_FILE_SIZE) {
         setFileError(`Image file is too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
       } else {
@@ -144,14 +201,20 @@ const MessageInput: React.FC = () => {
   const handleDocFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
-      setFileError(null);
-      if (selectedFile.size > MAX_FILE_SIZE) {
-        setFileError(`Document file is too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
-      } else {
-        setDocFile(selectedFile);
-        removeImageFile();
-        removeAudioFile();
-      }
+        setFileError(null);
+        const { acceptDoc } = getToolConfig();
+        if (!validateFile(selectedFile, acceptDoc)) {
+            setFileError(`Invalid document type. Please use: ${acceptDoc}.`);
+            event.target.value = '';
+            return;
+        }
+        if (selectedFile.size > MAX_FILE_SIZE) {
+            setFileError(`Document file is too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
+        } else {
+            setDocFile(selectedFile);
+            removeImageFile();
+            removeAudioFile();
+        }
     }
     event.target.value = '';
   };
@@ -159,14 +222,20 @@ const MessageInput: React.FC = () => {
   const handleAudioFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
-      setFileError(null);
-      if (selectedFile.size > MAX_FILE_SIZE) {
-        setFileError(`Audio file is too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
-      } else {
-        setAudioFile(selectedFile);
-        removeImageFile();
-        removeDocFile();
-      }
+        setFileError(null);
+        const { acceptAudio } = getToolConfig();
+        if (!validateFile(selectedFile, acceptAudio)) {
+            setFileError(`Invalid audio type. Please use: ${acceptAudio}.`);
+            event.target.value = '';
+            return;
+        }
+        if (selectedFile.size > MAX_FILE_SIZE) {
+            setFileError(`Audio file is too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
+        } else {
+            setAudioFile(selectedFile);
+            removeImageFile();
+            removeDocFile();
+        }
     }
     event.target.value = '';
   };
@@ -199,38 +268,7 @@ const MessageInput: React.FC = () => {
 
   const isSpeechSupported = !!(typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window));
   
-  const getToolConfig = () => {
-    switch(activeTool) {
-      case 'AGENT_HUB':
-        return { placeholder: 'Send a message...', sendDisabled: isLoading || (!input.trim() && !imageFile && !docFile && !audioFile), showCamera: true, showPaperclip: true, showAudioUpload: true };
-      case 'IMAGE_GEN':
-        return { placeholder: 'Describe an image to generate...', sendDisabled: isLoading || !input.trim(), showCamera: false, showPaperclip: false, showAudioUpload: false };
-      case 'CODE_GEN':
-        return { placeholder: 'Describe the code you want to create...', sendDisabled: isLoading || !input.trim(), showCamera: false, showPaperclip: false, showAudioUpload: false };
-      case 'TEXT_GEN':
-        return { placeholder: 'Describe the text you want to write, or upload a document...', sendDisabled: isLoading || (!input.trim() && !docFile), showCamera: false, showPaperclip: true, showAudioUpload: false, textInputDisabled: false };
-      case 'VIDEO_GEN':
-        return { placeholder: 'Describe a video... (optional image)', sendDisabled: isLoading || !input.trim(), showCamera: true, showPaperclip: false, showAudioUpload: false };
-      case 'IMAGE_ANALYSIS':
-        return { placeholder: 'Upload an image to analyze...', sendDisabled: isLoading || !imageFile, showCamera: true, showPaperclip: false, showAudioUpload: false, textInputDisabled: true };
-      case 'CODE_ANALYSIS':
-        return { placeholder: 'Paste code to analyze, or upload a file...', sendDisabled: isLoading || (!input.trim() && !docFile), showCamera: false, showPaperclip: true, showAudioUpload: false, textInputDisabled: false };
-      case 'DOC_SUMMARY':
-        return { placeholder: 'Upload a document to summarize...', sendDisabled: isLoading || !docFile, showCamera: false, showPaperclip: true, showAudioUpload: false, textInputDisabled: true };
-      case 'CONTENT_DETECTOR':
-        return { placeholder: 'Upload a document (.txt, .md, .pdf) to check for safety violations...', sendDisabled: isLoading || !docFile, showCamera: false, showPaperclip: true, showAudioUpload: false, textInputDisabled: true };
-      case 'AUDIO_ANALYSIS':
-        return { placeholder: 'Upload an audio file (.mp3, .wav) to analyze...', sendDisabled: isLoading || !audioFile, showCamera: false, showPaperclip: false, showAudioUpload: true, textInputDisabled: true };
-      case 'URL_CONTEXT':
-        return { placeholder: 'Paste a URL and ask a question...', sendDisabled: isLoading || !input.trim(), showCamera: false, showPaperclip: false, showAudioUpload: false };
-      case 'RAG_DB':
-        return { placeholder: 'Future RAG implementation space...', sendDisabled: true, showCamera: false, showPaperclip: false, showAudioUpload: false, textInputDisabled: true };
-      default:
-        return { placeholder: 'Send a message...', sendDisabled: false, showCamera: true, showPaperclip: true, showAudioUpload: false };
-    }
-  }
-
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDraggingOver(false);
     setFileError(null);
@@ -244,22 +282,47 @@ const MessageInput: React.FC = () => {
         return;
       }
       
-      const { showCamera, showPaperclip, showAudioUpload } = getToolConfig();
+      const { showCamera, showPaperclip, showAudioUpload, acceptImage, acceptDoc, acceptAudio } = getToolConfig();
 
       removeImageFile();
       removeDocFile();
       removeAudioFile();
 
-      if (showCamera && droppedFile.type.startsWith('image/')) {
-        setImageFile(droppedFile);
-        setImagePreviewUrl(URL.createObjectURL(droppedFile));
-      } else if (showAudioUpload && droppedFile.type.startsWith('audio/')) {
-        setAudioFile(droppedFile);
-      } else if (showPaperclip) {
-        setDocFile(droppedFile);
-      } else {
-        setFileError(`The current tool (${activeTool}) does not support this file type.`);
+      const isImage = droppedFile.type.startsWith('image/');
+      const isAudio = droppedFile.type.startsWith('audio/');
+
+      if (isImage && showCamera) {
+          if (validateFile(droppedFile, acceptImage)) {
+              setImageFile(droppedFile);
+              setImagePreviewUrl(URL.createObjectURL(droppedFile));
+              return;
+          } else {
+              setFileError(`Invalid image type. Please use: ${acceptImage}.`);
+              return;
+          }
       }
+      
+      if (isAudio && showAudioUpload) {
+          if (validateFile(droppedFile, acceptAudio)) {
+              setAudioFile(droppedFile);
+              return;
+          } else {
+              setFileError(`Invalid audio type. Please use: ${acceptAudio}.`);
+              return;
+          }
+      }
+
+      if (showPaperclip) {
+          if (validateFile(droppedFile, acceptDoc)) {
+              setDocFile(droppedFile);
+              return;
+          } else {
+              setFileError(`Invalid document type. Please use: ${acceptDoc}.`);
+              return;
+          }
+      }
+
+      setFileError(`The current tool (${activeTool}) does not support this file type.`);
       return;
     }
 
@@ -280,10 +343,10 @@ const MessageInput: React.FC = () => {
       removeAudioFile();
       setInput(image.prompt);
     } catch (error) {
-      console.error("Failed to handle dropped image from gallery:", error);
+      console.error("Failed to handle dropped item from gallery:", error);
       setFileError("Failed to process dropped item from gallery.");
     }
-  };
+  }, [getToolConfig, activeTool, setInput]);
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -295,7 +358,7 @@ const MessageInput: React.FC = () => {
     setIsDraggingOver(false);
   };
 
-  const { placeholder, sendDisabled: toolSendDisabled, showCamera, showPaperclip, showAudioUpload, textInputDisabled } = getToolConfig();
+  const { placeholder, sendDisabled: toolSendDisabled, showCamera, showPaperclip, showAudioUpload, textInputDisabled, acceptImage, acceptDoc, acceptAudio } = getToolConfig();
   const sendDisabled = toolSendDisabled || !!fileError;
 
   return (
@@ -445,21 +508,21 @@ const MessageInput: React.FC = () => {
           ref={imageFileInputRef}
           onChange={handleImageFileChange}
           className="hidden"
-          accept="image/jpeg, image/png"
+          accept={acceptImage || ACCEPTED_IMAGE_TYPES}
         />
         <input
           type="file"
           ref={docFileInputRef}
           onChange={handleDocFileChange}
           className="hidden"
-          accept=".txt,.md,.pdf,.js,.ts,.py,.html,.css,.json"
+          accept={acceptDoc || ACCEPTED_CODE_TYPES}
         />
         <input
           type="file"
           ref={audioFileInputRef}
           onChange={handleAudioFileChange}
           className="hidden"
-          accept=".mp3,.wav"
+          accept={acceptAudio || ACCEPTED_AUDIO_TYPES}
         />
     </div>
   );
