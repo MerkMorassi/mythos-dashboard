@@ -221,7 +221,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     if (done) break;
                     
                     if (value) {
-                      let chunk = String(decoder.decode(value, { stream: true }));
+                      let chunk = decoder.decode(value, { stream: true });
                       const prefix = `${agentId}::`;
                       if (responseText === '' && chunk.startsWith(prefix)) {
                           chunk = chunk.substring(prefix.length);
@@ -252,7 +252,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                const { done, value } = await reader.read();
                if (done) break;
                if (value) {
-                 responseText += String(decoder.decode(value, { stream: true }));
+                 // Fix: The redundant `String()` wrapper around `decoder.decode()` was removed. `decoder.decode()` already returns a string.
+                 responseText += decoder.decode(value, { stream: true });
                  setMessages((prev) =>
                    prev.map((msg) =>
                      msg.id === responseMessageId ? { ...msg, content: responseText } : msg
@@ -339,7 +340,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (localUrl) {
             setMessages(prev => prev.map(msg => msg.id === responseMessageId ? {...msg, content: 'Video generation completed. Displaying now...'} : msg));
             await new Promise(resolve => setTimeout(resolve, 1000));
-            setMessages(prev => prev.map(msg => msg.id === responseMessageId ? {...msg, content: '', videoUrl: localUrl} : msg));
+            setMessages(prev => prev.map(msg => msg.id === responseMessageId ? {
+                ...msg, 
+                content: `Video generated from prompt: "${prompt}"`,
+                imageUrl: imageUrl, 
+                videoUrl: localUrl
+            } : msg));
         } else {
             setMessages(prev => prev.map(msg => msg.id === responseMessageId ? {...msg, content: 'Video generation failed. The process finished but no video was returned.', isError: true} : msg));
         }
