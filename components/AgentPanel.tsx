@@ -1,9 +1,10 @@
-
-
 import React, { useState } from 'react';
 import CloseIcon from './icons/CloseIcon';
 import GripVerticalIcon from './icons/GripVerticalIcon';
 import VoiceTrainIcon from './icons/VoiceTrainIcon';
+import IdCardIcon from './icons/IdCardIcon';
+import SparklesIcon from './icons/SparklesIcon';
+import ChevronRightIcon from './icons/ChevronRightIcon';
 import { useAgents } from '../contexts/AgentsContext';
 import { useTools } from '../contexts/ToolContext';
 
@@ -15,14 +16,13 @@ const AgentPanel: React.FC = () => {
     handleAgentToggle,
     handleToggleAll,
     handleOpenVoiceModal,
-    // Fix: The property is named agentSortOrder in the context
     agentSortOrder,
     setAgentSortOrder,
     saveAgentOrder,
     isOrderDirty,
     setIsOrderDirty,
   } = useAgents();
-  const { allTrainingSamples } = useTools();
+  const { allTrainingSamples, handleOpenAgentProfile, setRightPanelContent } = useTools();
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -82,8 +82,6 @@ const AgentPanel: React.FC = () => {
     return <div className="w-2 h-2 rounded-full bg-gray-500" title="No Training Data"></div>;
   };
 
-  const { setRightPanelContent } = useTools();
-
   return (
     <div className="w-full h-full bg-secondary flex flex-col">
       <div className="p-4 border-b border-accent flex justify-between items-center flex-shrink-0">
@@ -113,19 +111,16 @@ const AgentPanel: React.FC = () => {
             <span className="text-text-secondary font-semibold">SORT BY:</span>
             <button
                 onClick={() => handleSortChange('name')}
-                // Fix: Use agentSortOrder
                 className={`px-2 py-1 rounded transition-colors ${agentSortOrder === 'name' ? 'bg-brand text-white' : 'bg-accent text-text-secondary hover:bg-accent/70'}`}
             >
                 Name
             </button>
             <button
                 onClick={() => handleSortChange('specialty')}
-                // Fix: Use agentSortOrder
                 className={`px-2 py-1 rounded transition-colors ${agentSortOrder === 'specialty' ? 'bg-brand text-white' : 'bg-accent text-text-secondary hover:bg-accent/70'}`}
             >
                 Specialty
             </button>
-             {/* Fix: Use agentSortOrder */}
              {agentSortOrder === 'custom' ? (
                 <button
                     onClick={handleSaveClick}
@@ -135,7 +130,7 @@ const AgentPanel: React.FC = () => {
                         ${saveStatus !== 'idle' ? 'bg-green-500' : ''}
                         disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
-                    {saveStatus === 'saved' ? 'Saved ✓' : 'Save Order'}
+                    {saveStatus === 'saved' ? 'Saved ✓' : (saveStatus === 'saving' ? 'Saving...' : 'Save Order')}
                 </button>
             ) : (
                 <button
@@ -150,7 +145,7 @@ const AgentPanel: React.FC = () => {
         <div className="flex flex-col gap-2" onDragLeave={() => setDragOverIndex(null)}>
             {displayedAgents.map((agent, index) => {
                 const isActive = activeAgents.has(agent.id);
-                const isDraggable = agent.id !== 'mythos_assistant';
+                const isDraggable = agent.id !== 'mythos_assistant' && agentSortOrder === 'custom';
                 const isBeingDragged = draggedIndex === index;
                 const isDragOver = dragOverIndex === index;
 
@@ -165,7 +160,7 @@ const AgentPanel: React.FC = () => {
                         onDragEnd={isDraggable ? handleDragEnd : undefined}
                         className={`p-2 rounded-lg flex items-center gap-2 transition-all duration-150 relative
                             ${isActive ? 'bg-accent' : ''}
-                            ${isBeingDragged ? 'opacity-40' : 'hover:bg-accent/50'}
+                            ${isBeingDragged ? 'opacity-40' : ''}
                         `}
                     >
                         {isDragOver && <div className="absolute top-0 left-0 right-0 h-0.5 bg-brand-hover" />}
@@ -177,34 +172,35 @@ const AgentPanel: React.FC = () => {
                         ) : (
                             <div className="w-8"></div> // Placeholder for alignment
                         )}
-
+                        
                         <div 
-                            className="flex-1 flex items-center gap-4 cursor-pointer"
-                            onClick={() => handleAgentToggle(agent.id)}
+                            className="flex-1 flex items-center gap-4 cursor-pointer group"
+                            onClick={() => handleOpenAgentProfile(agent)}
                         >
-                            <div className={`w-8 h-8 rounded-md flex items-center justify-center text-lg flex-shrink-0 ${isActive ? 'bg-brand text-white' : 'bg-primary'}`}>
+                            <div className={`w-10 h-10 rounded-md flex items-center justify-center text-xl flex-shrink-0 ${isActive ? 'bg-brand text-white' : 'bg-primary'}`}>
                                 {agent.sigil}
                             </div>
-                            <div className="flex-1">
+                            <div className="flex-1 overflow-hidden">
                                 <div className="font-semibold text-text-primary flex items-center gap-2">
-                                    {agent.name}
-                                    {getStatusIndicator(agent.id)}
+                                    <IdCardIcon /> <span className="truncate">{agent.name}</span> {getStatusIndicator(agent.id)}
                                 </div>
-                                <div className="text-xs text-text-secondary">{agent.specialty}</div>
+                                <div className="text-xs text-text-secondary flex items-center gap-2">
+                                    <SparklesIcon /> <span className="truncate">{agent.specialty}</span>
+                                </div>
                             </div>
                         </div>
 
                         <button 
-                            onClick={() => handleOpenVoiceModal(agent)}
-                            className="p-2 text-text-secondary hover:text-text-primary hover:bg-primary rounded-full"
+                            onClick={(e) => { e.stopPropagation(); handleOpenVoiceModal(agent); }}
+                            className="p-2 text-text-secondary hover:text-text-primary hover:bg-primary rounded-full z-10"
                             aria-label={`Prepare training data for ${agent.name}`}
                         >
                             <VoiceTrainIcon />
                         </button>
                         
                         <div 
-                            onClick={() => handleAgentToggle(agent.id)}
-                            className={`w-5 h-5 rounded-sm border-2 flex items-center justify-center cursor-pointer flex-shrink-0 mr-1 ${isActive ? 'bg-brand border-brand-hover' : 'border-accent'}`}
+                            onClick={(e) => { e.stopPropagation(); handleAgentToggle(agent.id); }}
+                            className={`w-5 h-5 rounded-sm border-2 flex items-center justify-center cursor-pointer flex-shrink-0 mr-1 z-10 ${isActive ? 'bg-brand border-brand-hover' : 'border-accent'}`}
                         >
                             {isActive && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
                         </div>

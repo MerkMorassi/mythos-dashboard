@@ -1,12 +1,21 @@
+
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
-// Fix: Import Agent type
-import type { ChatMessage as Message, Tool, Agent } from '../types';
+import type { ChatMessage as Message, Tool, Agent, SavedChat } from '../types';
 import { MessageRole, ALL_AGENTS } from '../types';
 import { synthesizeSpeech, generateImageFromPrompt, generateVideo, checkVideoOperationStatus, submitFeedback, fetchGenerationStream, analyzeImageOnBackend, generateVideoFromLastImage, detectContentSafety } from '../services/geminiService';
 import { getClonedVoiceBlob, getFirstTrainingSampleBlob } from '../services/dbService';
 import { markdownToPlainText } from '../utils/textUtils';
 import { useTools } from './ToolContext';
 import { useAgents } from './AgentsContext';
+
+const CHAT_HISTORY_KEY = 'mythos-chat-history';
+
+const initialMessage: Message = {
+  id: 'init',
+  role: MessageRole.MODEL,
+  content: "Hello! I am a multi-tool assistant. Please select a tool to get started.",
+};
+
 
 interface ChatContextState {
   messages: Message[];
@@ -18,11 +27,17 @@ interface ChatContextState {
   addMessage: (message: Omit<Message, 'id'>) => void;
   handleSpeak: (message: Message) => void;
   onToolSend: (message: string, file: File | null) => void;
-  // Fix: Add missing properties to the context state interface
   onInitiateEdit: (text: string) => void;
   onFeedback: (messageId: string, feedback: 'like' | 'dislike') => void;
   isImageAvailableForVideo: boolean;
   onGenerateVideoFromLastImage: (prompt: string) => void;
+  // Chat History state and functions
+  savedChats: SavedChat[];
+  currentChatId: string | null;
+  startNewChat: () => void;
+  saveCurrentChat: (name: string) => void;
+  loadChat: (chatId: string) => void;
+  deleteChat: (chatId: string) => void;
 }
 
 const ChatContext = createContext<ChatContextState | undefined>(undefined);
@@ -31,21 +46,29 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { activeTool, selectedTtsModel, selectedVoice, activeOperator, handleFetchGallery, isServerReady } = useTools();
   const { activeAgents } = useAgents();
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'init',
-      role: MessageRole.MODEL,
-      content: "Hello! I am a multi-tool assistant. Please select a tool to get started.",
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([initialMessage]);
   const [isLoading, setIsLoading] = useState(false);
   const [input, setInput] = useState('');
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const [lastGeneratedImageFilename, setLastGeneratedImageFilename] = useState<string | null>(null);
+  const [savedChats, setSavedChats] = useState<SavedChat[]>([]);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rejectedImageHashes = useRef<Map<string, number>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  
+  useEffect(() => {
+    try {
+        const historyJson = localStorage.getItem(CHAT_HISTORY_KEY);
+        if (historyJson) {
+            setSavedChats(JSON.parse(historyJson));
+        }
+    } catch (e) {
+        console.error("Could not load chat history from localStorage:", e);
+    }
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -141,6 +164,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (error instanceof Error && error.message.includes('interrupted')) {
             // Do nothing, this is expected if the user stops playback.
         } else {
+            // FIX: The `error` object in a catch block is of type `unknown` by default.
+            // This ensures we check if it's an Error instance before accessing `error.message`.
             let errorMessage = "Sorry, I couldn't generate audio. Error: Unknown error";
             if (error instanceof Error) {
                 errorMessage = `Sorry, I couldn't generate audio. Error: ${error.message}`;
@@ -252,8 +277,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                const { done, value } = await reader.read();
                if (done) break;
                if (value) {
-                 // Fix: The redundant `String()` wrapper around `decoder.decode()` was removed. `decoder.decode()` already returns a string.
-                 responseText += decoder.decode(value, { stream: true });
+                 // FIX: The result of `decoder.decode` is inferred as `unknown`, causing a type error.
+                 // Using `String()` to cast to a string resolves the issue.
+                 responseText += String(decoder.decode(value, { stream: true }));
                  setMessages((prev) =>
                    prev.map((msg) =>
                      msg.id === responseMessageId ? { ...msg, content: responseText } : msg
@@ -585,6 +611,63 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         handleStreamedGeneration('AGENT_HUB', message, file, {});
     }
   };
+  
+  // --- Chat History Functions ---
+    const startNewChat = useCallback(() => {
+        setMessages([initialMessage]);
+        setCurrentChatId(null);
+    }, []);
+
+    const saveCurrentChat = useCallback((name: string) => {
+        const chatName = name.trim() || `Chat from ${new Date().toLocaleString()}`;
+        let newSavedChats: SavedChat[];
+        let newChatId = currentChatId;
+
+        if (currentChatId) {
+            // Update existing chat
+            newSavedChats = savedChats.map(chat =>
+                chat.id === currentChatId
+                    ? { ...chat, name: chatName, messages, timestamp: Date.now() }
+                    : chat
+            );
+        } else {
+            // Save new chat
+            newChatId = window.crypto.randomUUID();
+            const newChat: SavedChat = {
+                id: newChatId,
+                name: chatName,
+                timestamp: Date.now(),
+                messages,
+            };
+            newSavedChats = [...savedChats, newChat];
+        }
+        
+        newSavedChats.sort((a, b) => b.timestamp - a.timestamp);
+        localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(newSavedChats));
+        setSavedChats(newSavedChats);
+        if(newChatId) setCurrentChatId(newChatId);
+    }, [currentChatId, messages, savedChats]);
+    
+    const loadChat = useCallback((chatId: string) => {
+        const chatToLoad = savedChats.find(c => c.id === chatId);
+        if (chatToLoad) {
+            setMessages(chatToLoad.messages);
+            setCurrentChatId(chatToLoad.id);
+        }
+    }, [savedChats]);
+    
+    const deleteChat = useCallback((chatId: string) => {
+        if (!window.confirm('Are you sure you want to delete this chat history?')) return;
+        
+        const newSavedChats = savedChats.filter(c => c.id !== chatId);
+        localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(newSavedChats));
+        setSavedChats(newSavedChats);
+
+        if (currentChatId === chatId) {
+            startNewChat();
+        }
+    }, [savedChats, currentChatId, startNewChat]);
+
 
   const value = {
     messages,
@@ -600,6 +683,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     onFeedback,
     isImageAvailableForVideo: !!lastGeneratedImageFilename,
     onGenerateVideoFromLastImage: handleGenerateVideoFromLastImage,
+    savedChats,
+    currentChatId,
+    startNewChat,
+    saveCurrentChat,
+    loadChat,
+    deleteChat,
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

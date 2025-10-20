@@ -13,11 +13,13 @@ import ChevronDoubleLeftIcon from './components/icons/ChevronDoubleLeftIcon';
 import ChevronDoubleRightIcon from './components/icons/ChevronDoubleRightIcon';
 import LocalImageViewer from './components/LocalImageViewer';
 import AgentPanel from './components/AgentPanel';
+import AgentProfilePanel from './components/AgentProfilePanel';
 import RagManager from './components/RagManager';
 import OperatorPanel from './components/OperatorPanel';
 import AudioToMidiConverter from './components/AudioToMidiConverter';
 import AgentVoiceModal from './components/AgentVoiceModal';
 import SettingsPanel from './components/SettingsPanel';
+import ChatHistoryPanel from './components/ChatHistoryPanel';
 import { ChatProvider, useChat } from './contexts/ChatContext';
 import { AgentsProvider, useAgents } from './contexts/AgentsContext';
 import { ToolProvider, useTools } from './contexts/ToolContext';
@@ -162,7 +164,9 @@ const AppContent: React.FC = () => {
             )}
             {rightPanelContent === 'TTS' && <TtsPanel />}
             {rightPanelContent === 'AGENTS' && <AgentPanel />}
+            {rightPanelContent === 'AGENT_PROFILE' && <AgentProfilePanel />}
             {rightPanelContent === 'OPERATOR' && <OperatorPanel />}
+            {rightPanelContent === 'HISTORY' && <ChatHistoryPanel />}
             {rightPanelContent === 'SETTINGS' && (
               <SettingsPanel
                 apiKey={apiKey}

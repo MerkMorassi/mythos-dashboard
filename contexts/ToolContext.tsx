@@ -9,7 +9,7 @@ interface ToolContextState {
   setActiveTool: (tool: Tool) => void;
   isLeftSidebarCollapsed: boolean;
   setIsLeftSidebarCollapsed: (collapsed: boolean) => void;
-  rightPanelContent: 'GALLERY' | 'PERCHANCE' | 'TTS' | 'AGENTS' | 'SUNO' | 'OPERATOR' | 'SETTINGS' | null;
+  rightPanelContent: 'GALLERY' | 'PERCHANCE' | 'TTS' | 'AGENTS' | 'SUNO' | 'OPERATOR' | 'SETTINGS' | 'HISTORY' | 'AGENT_PROFILE' | null;
   setRightPanelContent: (panel: ToolContextState['rightPanelContent']) => void;
   apiKey: string;
   setApiKey: (key: string) => void;
@@ -32,6 +32,7 @@ interface ToolContextState {
   handleToggleAgentPanel: () => void;
   handleToggleOperatorPanel: () => void;
   handleToggleSettingsPanel: () => void;
+  handleToggleHistoryPanel: () => void;
   handleApiKeySave: (key: string) => void;
   galleryImages: GalleryImage[];
   isGalleryLoading: boolean;
@@ -55,6 +56,9 @@ interface ToolContextState {
   handleDeleteRagRepository: (name: string) => Promise<void>;
   isServerReady: boolean;
   serverStatus: 'checking' | 'ready' | 'failed';
+  viewingAgentProfile: Agent | null;
+  handleOpenAgentProfile: (agent: Agent) => void;
+  handleCloseAgentProfile: () => void;
 }
 
 const ToolContext = createContext<ToolContextState | undefined>(undefined);
@@ -89,6 +93,7 @@ export const ToolProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [isServerReady, setIsServerReady] = useState(false);
   const [serverStatus, setServerStatus] = useState<'checking' | 'ready' | 'failed'>('checking');
+  const [viewingAgentProfile, setViewingAgentProfile] = useState<Agent | null>(null);
 
   useEffect(() => {
     const checkServerStatus = async () => {
@@ -235,9 +240,12 @@ export const ToolProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const handleToggleAgentPanel = () => {
     if (rightPanelContent !== 'AGENTS') handleFetchVoiceData(false);
     setRightPanelContent(rightPanelContent === 'AGENTS' ? null : 'AGENTS');
+    setViewingAgentProfile(null); // Clear profile when returning to agent list
   };
   const handleToggleOperatorPanel = () => setRightPanelContent(rightPanelContent === 'OPERATOR' ? null : 'OPERATOR');
   const handleToggleSettingsPanel = () => setRightPanelContent(rightPanelContent === 'SETTINGS' ? null : 'SETTINGS');
+  const handleToggleHistoryPanel = () => setRightPanelContent(rightPanelContent === 'HISTORY' ? null : 'HISTORY');
+
 
   const handleApiKeySave = (key: string) => {
     try {
@@ -331,16 +339,27 @@ export const ToolProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const handleOpenAgentProfile = (agent: Agent) => {
+    setViewingAgentProfile(agent);
+    setRightPanelContent('AGENT_PROFILE');
+  };
+
+  const handleCloseAgentProfile = () => {
+    setViewingAgentProfile(null);
+    setRightPanelContent('AGENTS');
+  };
+
   const value = {
     activeTool, setActiveTool, isLeftSidebarCollapsed, setIsLeftSidebarCollapsed, rightPanelContent, setRightPanelContent,
     apiKey, setApiKey, selectedTtsModel, setSelectedTtsModel, availableVoices, selectedVoice, setSelectedVoice,
     ttsModels: TTS_MODELS, handleCloneVoice, allTrainingSamples, handleFetchVoiceData,
     ragRepository, setRagRepository: setRagRepository, activeOperator, setActiveOperator, handleToolChange, handleToggleGallery,
-    handleToggleTtsPanel, handleToggleAgentPanel, handleToggleOperatorPanel, handleToggleSettingsPanel, handleApiKeySave,
+    handleToggleTtsPanel, handleToggleAgentPanel, handleToggleOperatorPanel, handleToggleSettingsPanel, handleToggleHistoryPanel, handleApiKeySave,
     galleryImages, isGalleryLoading, handleFetchGallery, lightboxIndex, handleOpenLightbox, handleCloseLightbox, handlePrevImage, handleNextImage,
     handleDragStart, perchanceFormData, setPerchanceFormData, handleOpenPerchanceWithParams,
     sunoFormData, setSunoFormData, handleOpenSunoWithParams, handleAnalyzeAudio, handleGenerateSunoLyrics,
     customRagRepositories, handleCreateRagRepository, handleDeleteRagRepository, isServerReady, serverStatus,
+    viewingAgentProfile, handleOpenAgentProfile, handleCloseAgentProfile,
   };
 
   return <ToolContext.Provider value={value}>{children}</ToolContext.Provider>;

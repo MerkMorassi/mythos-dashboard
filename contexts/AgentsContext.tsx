@@ -1,5 +1,3 @@
-
-
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { Agent, TrainingSample } from '../types';
 import { ALL_AGENTS } from '../types';
@@ -20,7 +18,7 @@ interface AgentsContextState {
   saveAgentOrder: () => void;
   isOrderDirty: boolean;
   setIsOrderDirty: (isDirty: boolean) => void;
-  // Fix: Add missing property to context state interface
+  // This is a placeholder, implementation is in ToolContext
   handleFetchVoiceData: (forceRefetch?: boolean) => Promise<void>;
 }
 
@@ -39,20 +37,24 @@ export const AgentsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const savedOrder = localStorage.getItem('mythos-agent-order');
         if (savedOrder) {
             const agentIds = JSON.parse(savedOrder) as string[];
-            const orderedAgents = agentIds.map(id => ALL_AGENTS.find(a => a.id === id)).filter(Boolean) as Agent[];
+            const agentMap = new Map(ALL_AGENTS.map(agent => [agent.id, agent]));
+            const orderedAgents = agentIds.map(id => agentMap.get(id)).filter(Boolean) as Agent[];
             const remainingAgents = ALL_AGENTS.filter(a => !agentIds.includes(a.id));
             setDisplayedAgents([...orderedAgents, ...remainingAgents]);
             setAgentSortOrder('custom');
+        } else {
+            setAgentSortOrder('name'); // Set default sort if nothing is saved
         }
     } catch (e) {
-        console.warn("Could not load custom agent order from localStorage.");
+        console.warn("Could not load custom agent order from localStorage.", e);
         setDisplayedAgents(ALL_AGENTS);
+        setAgentSortOrder('name');
     }
   }, []);
 
   useEffect(() => {
     if (agentSortOrder === 'custom') {
-      return;
+      return; // In custom mode, manual reordering takes precedence
     }
     const defaultAgent = ALL_AGENTS.find(a => a.id === 'mythos_assistant');
     const sortableAgents = [...ALL_AGENTS].filter(a => a.id !== 'mythos_assistant');
@@ -66,7 +68,7 @@ export const AgentsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     setDisplayedAgents(defaultAgent ? [defaultAgent, ...sortableAgents] : sortableAgents);
-    setIsOrderDirty(false);
+    setIsOrderDirty(false); // Reset dirty flag for programmatic sorts
   }, [agentSortOrder]);
 
   const handleAgentToggle = (agentId: string) => {
@@ -84,7 +86,7 @@ export const AgentsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const handleToggleAll = () => {
     setActiveAgents(prev => {
       if (prev.size === ALL_AGENTS.length) {
-        return new Set();
+        return new Set(['mythos_assistant']); // Default to assistant
       } else {
         return new Set(ALL_AGENTS.map(a => a.id));
       }
@@ -111,8 +113,6 @@ export const AgentsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
   };
   
-  // Fix: This is a placeholder. The actual implementation is in ToolContext.
-  // This resolves the type error in App.tsx. A better long-term fix is to refactor contexts.
   const handleFetchVoiceData = async (forceRefetch?: boolean) => {
     console.warn("handleFetchVoiceData is called on AgentsContext but its implementation lives in ToolContext due to architectural constraints.");
     return Promise.resolve();

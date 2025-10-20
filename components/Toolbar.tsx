@@ -24,6 +24,7 @@ import ChevronRightIcon from './icons/ChevronRightIcon';
 import OperatorIcon from './icons/OperatorIcon';
 import MidiIcon from './icons/MidiIcon';
 import SettingsIcon from './icons/SettingsIcon';
+import HistoryIcon from './icons/HistoryIcon';
 import { useTools } from '../contexts/ToolContext';
 
 const ToolButton: React.FC<{
@@ -54,7 +55,7 @@ const Toolbar: React.FC = () => {
     handleToggleAgentPanel,
     handleToggleOperatorPanel,
     handleToggleSettingsPanel,
-    // Fix: The property is named isLeftSidebarCollapsed in the context
+    handleToggleHistoryPanel,
     isLeftSidebarCollapsed,
     rightPanelContent
   } = useTools();
@@ -67,7 +68,6 @@ const Toolbar: React.FC = () => {
   });
 
   const toggleSection = (section: keyof typeof collapsedSections) => {
-    // Fix: Use isLeftSidebarCollapsed
     if (!isLeftSidebarCollapsed) {
         setCollapsedSections(prev => ({ ...prev, [section]: !prev[section] }));
     }
@@ -78,11 +78,9 @@ const Toolbar: React.FC = () => {
     sectionKey: keyof typeof collapsedSections,
     children: React.ReactNode
   ) => {
-    // Fix: Use isLeftSidebarCollapsed
     const isSectionCollapsed = isLeftSidebarCollapsed || collapsedSections[sectionKey];
     return (
         <div>
-            {/* Fix: Use isLeftSidebarCollapsed */}
             {!isLeftSidebarCollapsed && (
                 <button onClick={() => toggleSection(sectionKey)} className="flex items-center justify-between w-full text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2 px-3 hover:text-text-primary">
                     <span>{title}</span>
@@ -102,7 +100,6 @@ const Toolbar: React.FC = () => {
     <div className="flex-1 overflow-y-auto p-2">
       <div className="flex flex-col gap-4">
         <div>
-             {/* Fix: Use isLeftSidebarCollapsed */}
              {!isLeftSidebarCollapsed && <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2 px-3">Agent Chat</h3>}
              <div className="flex flex-col gap-1">
                 <ToolButton label="Agent Hub" isActive={activeTool === 'AGENT_HUB'} onClick={() => handleToolChange('AGENT_HUB')} isCollapsed={isLeftSidebarCollapsed}><AgentHubIcon /></ToolButton>
@@ -140,6 +137,7 @@ const Toolbar: React.FC = () => {
         {renderToolGroup('System', 'system', <>
             <ToolButton label="Agents" isActive={rightPanelContent === 'AGENTS'} onClick={handleToggleAgentPanel} isCollapsed={isLeftSidebarCollapsed}><AgentHubIcon /></ToolButton>
             <ToolButton label="Operator" isActive={rightPanelContent === 'OPERATOR'} onClick={handleToggleOperatorPanel} isCollapsed={isLeftSidebarCollapsed}><OperatorIcon /></ToolButton>
+            <ToolButton label="History" isActive={rightPanelContent === 'HISTORY'} onClick={handleToggleHistoryPanel} isCollapsed={isLeftSidebarCollapsed}><HistoryIcon /></ToolButton>
             <ToolButton label="Settings" isActive={rightPanelContent === 'SETTINGS'} onClick={handleToggleSettingsPanel} isCollapsed={isLeftSidebarCollapsed}><SettingsIcon /></ToolButton>
         </>)}
       </div>

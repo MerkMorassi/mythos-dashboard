@@ -14,6 +14,9 @@ import CheckIcon from './icons/CheckIcon';
 import ThumbsUpIcon from './icons/ThumbsUpIcon';
 import ThumbsDownIcon from './icons/ThumbsDownIcon';
 import { useChat } from '../contexts/ChatContext';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
 
 interface ChatMessageProps {
   message: Message;
@@ -99,7 +102,13 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isSpeaking }) => {
               <span className="truncate">{message.fileName}</span>
             </div>
           )}
-          {message.content && <p className="whitespace-pre-wrap">{message.content}</p>}
+          {message.content && (
+            <div className="markdown-content">
+              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                {message.content}
+              </ReactMarkdown>
+            </div>
+          )}
           {showProgressBar && (
             <div className="mt-2 h-2 w-full bg-accent rounded-full overflow-hidden">
                 <div 
