@@ -1,12 +1,33 @@
 
-import React from 'react';
+
+import React, { useRef } from 'react';
 import type { Operator } from '../types';
 import { HITL_OPERATORS } from '../types';
 import CloseIcon from './icons/CloseIcon';
+import CameraIcon from './icons/CameraIcon';
 import { useTools } from '../contexts/ToolContext';
 
 const OperatorPanel: React.FC = () => {
-  const { activeOperator, setActiveOperator, setRightPanelContent } = useTools();
+  const { 
+    activeOperator, 
+    setActiveOperator, 
+    setRightPanelContent,
+    profileImageUrls,
+    handleUpdateProfileImage 
+  } = useTools();
+
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, operatorId: string) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        alert("Image file is too large. Maximum size is 5MB.");
+        return;
+      }
+      handleUpdateProfileImage(operatorId, file);
+    }
+  };
 
   return (
     <div className="w-full h-full bg-secondary flex flex-col">
@@ -24,15 +45,38 @@ const OperatorPanel: React.FC = () => {
         <div className="flex flex-col gap-2">
             {HITL_OPERATORS.map(operator => {
                 const isActive = activeOperator.id === operator.id;
+                const imageUrl = profileImageUrls.get(operator.id) || operator.profileImageUrl;
                 return (
                     <div
                         key={operator.id}
                         onClick={() => setActiveOperator(operator)}
                         className={`p-3 rounded-lg flex items-center gap-4 cursor-pointer transition-colors ${isActive ? 'bg-accent' : 'hover:bg-accent/50'}`}
                     >
-                        <div className={`w-6 h-6 rounded-md flex items-center justify-center text-lg flex-shrink-0 ${isActive ? 'bg-brand text-white' : 'bg-primary'}`}>
-                            👤
+                        <input
+                            type="file"
+                            // FIX: The ref callback was incorrectly returning a value. Changed to a block statement to ensure a void return type.
+                            ref={el => { fileInputRefs.current[operator.id] = el; }}
+                            onChange={(e) => handleFileChange(e, operator.id)}
+                            className="hidden"
+                            accept="image/png, image/jpeg, image/gif"
+                        />
+                        <div
+                            className="relative group w-10 h-10 flex-shrink-0"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                fileInputRefs.current[operator.id]?.click();
+                            }}
+                        >
+                            <img
+                                src={imageUrl}
+                                alt={operator.name}
+                                className="w-10 h-10 rounded-full object-cover"
+                            />
+                            <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                                <CameraIcon />
+                            </div>
                         </div>
+
                         <div className="flex-1">
                             <div className="font-semibold text-text-primary">{operator.name}</div>
                             <div className="text-xs text-text-secondary">{operator.specialty}</div>

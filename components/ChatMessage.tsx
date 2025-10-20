@@ -14,6 +14,7 @@ import CheckIcon from './icons/CheckIcon';
 import ThumbsUpIcon from './icons/ThumbsUpIcon';
 import ThumbsDownIcon from './icons/ThumbsDownIcon';
 import { useChat } from '../contexts/ChatContext';
+import { useTools } from '../contexts/ToolContext';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
@@ -26,6 +27,7 @@ interface ChatMessageProps {
 const ChatMessage: React.FC<ChatMessageProps> = ({ message, isSpeaking }) => {
   const [copied, setCopied] = useState(false);
   const { handleSpeak, onInitiateEdit, onFeedback } = useChat();
+  const { profileImageUrls } = useTools();
   const isUser = message.role === MessageRole.USER;
 
   if (!isUser && message.rejectionLevel && message.rejectionLevel > 0) {
@@ -54,8 +56,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isSpeaking }) => {
       : 'bg-secondary text-text-primary'
   } ${message.isError ? 'border border-red-500' : ''}`;
 
-  const Icon = isUser ? UserIcon : BotIcon;
-  const iconWrapperClasses = `flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+  const iconWrapperClasses = `flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center overflow-hidden ${
     isUser ? 'bg-indigo-400' : 'bg-accent'
   }`;
 
@@ -66,11 +67,34 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isSpeaking }) => {
   const userAuthorName = message.operator ? message.operator.name : 'User';
   const showProgressBar = typeof message.uploadProgress === 'number' && message.uploadProgress < 100;
 
+  const renderAvatar = () => {
+    if (isUser && message.operator) {
+        const imageUrl = profileImageUrls.get(message.operator.id) || message.operator.profileImageUrl;
+        if (imageUrl) {
+            return <img src={imageUrl} alt={message.operator.name} className="w-full h-full object-cover" />;
+        }
+        return <UserIcon />;
+    }
+    if (!isUser && message.agent) {
+        const imageUrl = profileImageUrls.get(message.agent.id) || message.agent.profileImageUrl;
+        if (imageUrl) {
+            return <img src={imageUrl} alt={message.agent.name} className="w-full h-full object-cover" />;
+        }
+        if (message.agent.sigil) {
+             return <span className="text-xl">{message.agent.sigil}</span>;
+        }
+        return <BotIcon />;
+    }
+    // Fallbacks
+    return isUser ? <UserIcon /> : <BotIcon />;
+  };
+
+
   return (
     <div className={wrapperClasses}>
       {!isUser && (
         <div className={iconWrapperClasses} title={agentAuthorName}>
-           {message.agent ? <span className="text-xl">{message.agent.sigil}</span> : <Icon />}
+           {renderAvatar()}
         </div>
       )}
       
@@ -181,7 +205,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isSpeaking }) => {
 
       {isUser && (
         <div className={iconWrapperClasses}>
-          <Icon />
+          {renderAvatar()}
         </div>
       )}
     </div>

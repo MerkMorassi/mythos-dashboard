@@ -9,6 +9,7 @@ import PaperclipIcon from './icons/PaperclipIcon';
 import AudioIcon from './icons/AudioIcon';
 import AlertTriangleIcon from './icons/AlertTriangleIcon';
 import CloseIcon from './icons/CloseIcon';
+import TrashIcon from './icons/TrashIcon';
 import { useChat } from '../contexts/ChatContext';
 import { useTools } from '../contexts/ToolContext';
 
@@ -25,7 +26,8 @@ const MessageInput: React.FC = () => {
     onToolSend,
     isLoading,
     isImageAvailableForVideo,
-    onGenerateVideoFromLastImage
+    onGenerateVideoFromLastImage,
+    startNewChat,
   } = useChat();
   const { activeTool } = useTools();
   
@@ -465,6 +467,15 @@ const MessageInput: React.FC = () => {
 
           {/* Right-side action buttons */}
           <div className="flex items-center space-x-1">
+            <button
+                onClick={startNewChat}
+                disabled={isLoading}
+                className="p-2 rounded-full text-text-secondary hover:text-red-400 hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                aria-label="Clear chat"
+                title="Start New Chat"
+            >
+                <TrashIcon />
+            </button>
             {activeTool === 'VIDEO_GEN' && isImageAvailableForVideo && (
               <button
                 onClick={handleUseLastImage}

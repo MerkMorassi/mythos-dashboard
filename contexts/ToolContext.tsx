@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { Tool, VoiceOption, TtsModelOption, GalleryImage, Operator, TrainingSample, Agent, RagRepository } from '../types';
 import { ALL_AGENTS, ELEVENLABS_VOICES, HITL_OPERATORS, PREVIEW_VOICES, STABLE_VOICES, TTS_MODELS, MessageRole } from '../types';
-import { addClonedVoice, getAllTrainingSamples, getClonedVoices, initDB } from '../services/dbService';
+import { addClonedVoice, getAllTrainingSamples, getClonedVoices, initDB, addProfileImage, getAllProfileImages } from '../services/dbService';
 import { analyzeAudioForSunoStyle, createRagRepository, deleteRagRepository, fetchGallery, fetchRagRepositories, generateSunoLyrics } from '../services/geminiService';
 
 interface ToolContextState {
@@ -59,6 +59,8 @@ interface ToolContextState {
   viewingAgentProfile: Agent | null;
   handleOpenAgentProfile: (agent: Agent) => void;
   handleCloseAgentProfile: () => void;
+  profileImageUrls: Map<string, string>;
+  handleUpdateProfileImage: (id: string, blob: Blob) => Promise<void>;
 }
 
 const ToolContext = createContext<ToolContextState | undefined>(undefined);
@@ -94,6 +96,16 @@ export const ToolProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isServerReady, setIsServerReady] = useState(false);
   const [serverStatus, setServerStatus] = useState<'checking' | 'ready' | 'failed'>('checking');
   const [viewingAgentProfile, setViewingAgentProfile] = useState<Agent | null>(null);
+  const [profileImageUrls, setProfileImageUrls] = useState<Map<string, string>>(new Map());
+  const imageUrlsRef = useRef(profileImageUrls);
+  imageUrlsRef.current = profileImageUrls;
+
+  useEffect(() => {
+      // This cleanup runs when the component unmounts
+      return () => {
+          imageUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+      };
+  }, []);
 
   useEffect(() => {
     const checkServerStatus = async () => {
@@ -130,16 +142,28 @@ export const ToolProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn("Could not access localStorage to get API key.");
     }
 
-    const loadRepositories = async () => {
+    const loadData = async () => {
         try {
             await initDB();
-            const repos = await fetchRagRepositories();
+            const [repos, images] = await Promise.all([
+              fetchRagRepositories(), 
+              getAllProfileImages()
+            ]);
             setCustomRagRepositories(repos);
+
+            // Revoke any existing URLs before creating new ones
+            imageUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+            const newImageUrlMap = new Map<string, string>();
+            for (const img of images) {
+                newImageUrlMap.set(img.id, URL.createObjectURL(img.blob));
+            }
+            setProfileImageUrls(newImageUrlMap);
+
         } catch (error) {
-            console.error("Failed to load custom RAG repositories:", error);
+            console.error("Failed to load initial data:", error);
         }
     };
-    loadRepositories();
+    loadData();
   }, [isServerReady]);
 
   const handleFetchVoiceData = useCallback(async (forceRefetch = false) => {
@@ -331,7 +355,9 @@ export const ToolProvider: React.FC<{ children: React.ReactNode }> = ({ children
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            const chunk = decoder.decode(value, { stream: true });
+            // FIX: The result of `decoder.decode` is inferred as `unknown`, causing a type error.
+            // Using `String()` to cast to a string resolves the issue.
+            const chunk = String(decoder.decode(value, { stream: true }));
             setSunoFormData(prev => ({...prev, lyrics: prev.lyrics + chunk}));
         }
     } catch (error) {
@@ -349,6 +375,24 @@ export const ToolProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setRightPanelContent('AGENTS');
   };
 
+  const handleUpdateProfileImage = async (id: string, blob: Blob) => {
+    try {
+      await addProfileImage(id, blob);
+      setProfileImageUrls(prevMap => {
+        const newMap = new Map(prevMap);
+        const oldUrl = newMap.get(id);
+        if (oldUrl) {
+          URL.revokeObjectURL(oldUrl);
+        }
+        newMap.set(id, URL.createObjectURL(blob));
+        return newMap;
+      });
+    } catch (error) {
+      console.error("Failed to update profile image:", error);
+      // Optionally, add a user-facing error message here
+    }
+  };
+
   const value = {
     activeTool, setActiveTool, isLeftSidebarCollapsed, setIsLeftSidebarCollapsed, rightPanelContent, setRightPanelContent,
     apiKey, setApiKey, selectedTtsModel, setSelectedTtsModel, availableVoices, selectedVoice, setSelectedVoice,
@@ -360,6 +404,7 @@ export const ToolProvider: React.FC<{ children: React.ReactNode }> = ({ children
     sunoFormData, setSunoFormData, handleOpenSunoWithParams, handleAnalyzeAudio, handleGenerateSunoLyrics,
     customRagRepositories, handleCreateRagRepository, handleDeleteRagRepository, isServerReady, serverStatus,
     viewingAgentProfile, handleOpenAgentProfile, handleCloseAgentProfile,
+    profileImageUrls, handleUpdateProfileImage,
   };
 
   return <ToolContext.Provider value={value}>{children}</ToolContext.Provider>;

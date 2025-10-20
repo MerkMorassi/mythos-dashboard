@@ -3,9 +3,10 @@
 import type { VoiceOption, TrainingSample } from '../types';
 
 const DB_NAME = 'MythosDB';
-const DB_VERSION = 2; // Incremented version to add new store
+const DB_VERSION = 3; // Incremented version to add new stores
 const VOICE_STORE = 'clonedVoices';
 const SAMPLE_STORE = 'trainingSamples';
+const PROFILE_IMAGE_STORE = 'profileImages';
 
 let db: IDBDatabase;
 
@@ -34,6 +35,9 @@ export const initDB = (): Promise<boolean> => {
       if (!dbInstance.objectStoreNames.contains(SAMPLE_STORE)) {
         const sampleStore = dbInstance.createObjectStore(SAMPLE_STORE, { keyPath: 'id', autoIncrement: true });
         sampleStore.createIndex('agent_id', 'agent_id', { unique: false });
+      }
+      if (!dbInstance.objectStoreNames.contains(PROFILE_IMAGE_STORE)) {
+        dbInstance.createObjectStore(PROFILE_IMAGE_STORE, { keyPath: 'id' });
       }
     };
   });
@@ -202,4 +206,28 @@ export const getFirstTrainingSampleBlob = (agentId: string): Promise<Blob | null
             }
         };
     });
+};
+
+// --- Profile Images ---
+
+export const addProfileImage = (id: string, blob: Blob): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if (!db) return reject('DB not initialized');
+    const transaction = db.transaction(PROFILE_IMAGE_STORE, 'readwrite');
+    const store = transaction.objectStore(PROFILE_IMAGE_STORE);
+    const request = store.put({ id, blob });
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
+};
+
+export const getAllProfileImages = (): Promise<{id: string, blob: Blob}[]> => {
+  return new Promise((resolve, reject) => {
+    if (!db) return reject('DB not initialized');
+    const transaction = db.transaction(PROFILE_IMAGE_STORE, 'readonly');
+    const store = transaction.objectStore(PROFILE_IMAGE_STORE);
+    const request = store.getAll();
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+  });
 };

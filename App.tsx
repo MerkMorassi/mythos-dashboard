@@ -20,12 +20,13 @@ import AudioToMidiConverter from './components/AudioToMidiConverter';
 import AgentVoiceModal from './components/AgentVoiceModal';
 import SettingsPanel from './components/SettingsPanel';
 import ChatHistoryPanel from './components/ChatHistoryPanel';
+import SaveToRagModal from './components/SaveToRagModal';
 import { ChatProvider, useChat } from './contexts/ChatContext';
 import { AgentsProvider, useAgents } from './contexts/AgentsContext';
 import { ToolProvider, useTools } from './contexts/ToolContext';
 
 const AppContent: React.FC = () => {
-  const { messages, messagesEndRef, speakingMessageId, onToolSend } = useChat();
+  const { messages, messagesEndRef, speakingMessageId, onToolSend, isSaveToRagModalOpen } = useChat();
   const {
     activeTool, isLeftSidebarCollapsed, setIsLeftSidebarCollapsed, rightPanelContent,
     setRightPanelContent, lightboxIndex, handleCloseLightbox, handlePrevImage, handleNextImage,
@@ -196,6 +197,8 @@ const AppContent: React.FC = () => {
           onDataUpdate={() => handleFetchVoiceData(true)}
         />
       )}
+      {/* Save to RAG Modal */}
+      {isSaveToRagModalOpen && <SaveToRagModal />}
     </div>
   );
 };

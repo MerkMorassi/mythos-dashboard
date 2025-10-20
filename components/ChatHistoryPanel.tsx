@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useChat } from '../contexts/ChatContext';
 import { useTools } from '../contexts/ToolContext';
 import CloseIcon from './icons/CloseIcon';
 import SearchIcon from './icons/SearchIcon';
+import SaveToDbIcon from './icons/SaveToDbIcon';
 
 const ChatHistoryPanel: React.FC = () => {
   const { 
@@ -11,7 +13,8 @@ const ChatHistoryPanel: React.FC = () => {
     loadChat, 
     deleteChat, 
     startNewChat,
-    currentChatId 
+    currentChatId,
+    openSaveToRagModal,
   } = useChat();
   const { setRightPanelContent } = useTools();
   
@@ -127,6 +130,14 @@ const ChatHistoryPanel: React.FC = () => {
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                                    <button
+                                        onClick={() => openSaveToRagModal(chat)}
+                                        className="p-2 text-text-secondary hover:text-text-primary hover:bg-accent rounded-full"
+                                        aria-label={`Save chat to RAG: ${chat.name}`}
+                                        title="Save to RAG"
+                                    >
+                                        <SaveToDbIcon />
+                                    </button>
                                     <button
                                         onClick={() => handleLoad(chat.id)}
                                         className="py-1 px-3 text-xs bg-accent rounded-md hover:bg-brand-hover"

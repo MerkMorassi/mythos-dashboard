@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import type { ChatMessage as Message, Tool, Agent, SavedChat } from '../types';
 import { MessageRole, ALL_AGENTS } from '../types';
-import { synthesizeSpeech, generateImageFromPrompt, generateVideo, checkVideoOperationStatus, submitFeedback, fetchGenerationStream, analyzeImageOnBackend, generateVideoFromLastImage, detectContentSafety } from '../services/geminiService';
+import { synthesizeSpeech, generateImageFromPrompt, generateVideo, checkVideoOperationStatus, submitFeedback, fetchGenerationStream, analyzeImageOnBackend, generateVideoFromLastImage, detectContentSafety, saveChatToRag } from '../services/geminiService';
 import { getClonedVoiceBlob, getFirstTrainingSampleBlob } from '../services/dbService';
 import { markdownToPlainText } from '../utils/textUtils';
 import { useTools } from './ToolContext';
@@ -38,6 +38,12 @@ interface ChatContextState {
   saveCurrentChat: (name: string) => void;
   loadChat: (chatId: string) => void;
   deleteChat: (chatId: string) => void;
+  // Save to RAG Modal state
+  isSaveToRagModalOpen: boolean;
+  chatToSaveToRag: SavedChat | null;
+  openSaveToRagModal: (chat: SavedChat) => void;
+  closeSaveToRagModal: () => void;
+  handleSaveChatToRag: (chat: SavedChat, repository: string) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextState | undefined>(undefined);
@@ -53,7 +59,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [lastGeneratedImageFilename, setLastGeneratedImageFilename] = useState<string | null>(null);
   const [savedChats, setSavedChats] = useState<SavedChat[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
-
+  const [isSaveToRagModalOpen, setIsSaveToRagModalOpen] = useState(false);
+  const [chatToSaveToRag, setChatToSaveToRag] = useState<SavedChat | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rejectedImageHashes = useRef<Map<string, number>>(new Map());
@@ -614,9 +621,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   // --- Chat History Functions ---
     const startNewChat = useCallback(() => {
+        if (messages.length > 1 || (messages.length === 1 && messages[0].id !== 'init')) {
+            if (!window.confirm('Are you sure you want to start a new chat? The current conversation will be cleared.')) {
+                return;
+            }
+        }
         setMessages([initialMessage]);
         setCurrentChatId(null);
-    }, []);
+    }, [messages]);
 
     const saveCurrentChat = useCallback((name: string) => {
         const chatName = name.trim() || `Chat from ${new Date().toLocaleString()}`;
@@ -668,6 +680,40 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [savedChats, currentChatId, startNewChat]);
 
+    // --- Save to RAG Modal Functions ---
+    const openSaveToRagModal = (chat: SavedChat) => {
+      setChatToSaveToRag(chat);
+      setIsSaveToRagModalOpen(true);
+    };
+
+    const closeSaveToRagModal = () => {
+        setChatToSaveToRag(null);
+        setIsSaveToRagModalOpen(false);
+    };
+
+    const handleSaveChatToRag = async (chat: SavedChat, repository: string) => {
+        if (!isServerReady) {
+            addServerError();
+            return;
+        }
+        try {
+            await saveChatToRag(chat, repository);
+            addMessage({
+                role: MessageRole.MODEL,
+                content: `Chat "${chat.name}" was successfully saved to the "${repository}" knowledge base.`,
+            });
+            closeSaveToRagModal();
+        } catch (error) {
+            console.error('Failed to save chat to RAG:', error);
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+            addMessage({
+                role: MessageRole.MODEL,
+                content: `Error saving chat to RAG: ${errorMessage}`,
+                isError: true,
+            });
+        }
+    };
+
 
   const value = {
     messages,
@@ -689,6 +735,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     saveCurrentChat,
     loadChat,
     deleteChat,
+    isSaveToRagModalOpen,
+    chatToSaveToRag,
+    openSaveToRagModal,
+    closeSaveToRagModal,
+    handleSaveChatToRag,
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

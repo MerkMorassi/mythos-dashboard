@@ -1,7 +1,7 @@
 
 import { GoogleGenAI } from '@google/genai';
 import type { Part } from '@google/genai';
-import type { GalleryImage, LocalImage, Tool, RagDocument, RagRepository } from '../types';
+import type { GalleryImage, LocalImage, Tool, RagDocument, RagRepository, SavedChat } from '../types';
 
 const API_BASE_URL = '/api';
 
@@ -312,6 +312,20 @@ export async function deleteRagDocument(id: number): Promise<Response> {
     if (!response.ok) throw new Error('Failed to delete RAG document');
     return response;
 }
+
+export async function saveChatToRag(chat: SavedChat, repository: string): Promise<RagDocument> {
+    const response = await fetch(`${API_BASE_URL}/rag-documents/save-chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat, repository }),
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save chat to RAG');
+    }
+    return await response.json();
+}
+
 
 // --- RAG Repository Services ---
 export async function fetchRagRepositories(): Promise<RagRepository[]> {

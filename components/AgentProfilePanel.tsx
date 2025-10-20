@@ -1,14 +1,23 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { useTools } from '../contexts/ToolContext';
 import { useAgents } from '../contexts/AgentsContext';
 import ChevronLeftIcon from './icons/ChevronLeftIcon';
 import VoiceTrainIcon from './icons/VoiceTrainIcon';
 import DbIcon from './icons/DbIcon';
 import SparklesIcon from './icons/SparklesIcon';
+import CameraIcon from './icons/CameraIcon';
 
 const AgentProfilePanel: React.FC = () => {
-    const { viewingAgentProfile, handleCloseAgentProfile, setRightPanelContent, setRagRepository } = useTools();
+    const { 
+        viewingAgentProfile, 
+        handleCloseAgentProfile, 
+        setRightPanelContent, 
+        setRagRepository,
+        profileImageUrls,
+        handleUpdateProfileImage,
+    } = useTools();
     const { handleOpenVoiceModal } = useAgents();
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     if (!viewingAgentProfile) {
         return (
@@ -18,7 +27,8 @@ const AgentProfilePanel: React.FC = () => {
         );
     }
     
-    const { sigil, name, specialty, bio, competencies, communicationStyle } = viewingAgentProfile;
+    const { id, sigil, name, specialty, bio, competencies, communicationStyle, profileImageUrl } = viewingAgentProfile;
+    const customImageUrl = profileImageUrls.get(id) || profileImageUrl;
 
     const handleManageKnowledge = () => {
         setRagRepository(viewingAgentProfile.id);
@@ -28,6 +38,17 @@ const AgentProfilePanel: React.FC = () => {
             const ragDbButton = document.querySelector('[aria-label="Select dB tool"]') as HTMLElement;
             ragDbButton?.click();
         }, 50);
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 5 * 1024 * 1024) { // 5MB limit
+                alert("Image file is too large. Maximum size is 5MB.");
+                return;
+            }
+            handleUpdateProfileImage(id, file);
+        }
     };
 
     return (
@@ -45,8 +66,27 @@ const AgentProfilePanel: React.FC = () => {
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {/* Header */}
                 <div className="flex flex-col items-center text-center p-4 bg-primary rounded-lg">
-                    <div className="w-24 h-24 rounded-full bg-accent flex items-center justify-center text-5xl mb-3 border-4 border-secondary">
-                        {sigil}
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        className="hidden"
+                        accept="image/png, image/jpeg, image/gif"
+                    />
+                     <div
+                        className="relative group w-24 h-24 mb-3 cursor-pointer"
+                        onClick={() => fileInputRef.current?.click()}
+                    >
+                        {customImageUrl ? (
+                            <img src={customImageUrl} alt={name} className="w-24 h-24 rounded-full object-cover border-4 border-secondary" />
+                        ) : (
+                            <div className="w-24 h-24 rounded-full bg-accent flex items-center justify-center text-5xl border-4 border-secondary">
+                                {sigil}
+                            </div>
+                        )}
+                        <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                            <CameraIcon />
+                        </div>
                     </div>
                     <h1 className="text-2xl font-bold text-text-primary">{name}</h1>
                     <p className="text-md text-brand-hover flex items-center gap-2">

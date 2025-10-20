@@ -9,7 +9,7 @@ import fs from 'fs';
 import dotenv from 'dotenv';
 import { Pool } from 'pg';
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold, GenerateContentResponse } from '@google/genai';
-import type { Agent } from './types';
+import type { Agent, ChatMessage } from './types';
 import { ALL_AGENTS, MUSIC_AGENTS } from './types';
 
 // Declare Node.js globals to resolve TypeScript errors.
@@ -165,6 +165,35 @@ const fileToGenerativePart = (file: any) => {
     },
   };
 };
+
+// Helper function to format chat messages for RAG storage
+const formatChatMessages = (chatName: string, messages: ChatMessage[]): string => {
+    let content = `Chat Session: ${chatName}\n`;
+    content += `Saved at: ${new Date().toISOString()}\n`;
+    content += '========================================\n\n';
+
+    messages.forEach(msg => {
+        if (msg.isError || (msg.role === 'model' && msg.content === '...')) return;
+        
+        const author = msg.agent?.name || msg.operator?.name || msg.role;
+        content += `[${author.toUpperCase()}]\n`;
+        if (msg.content) {
+            content += `${msg.content}\n`;
+        }
+        if (msg.imageUrl) {
+            content += `[Image Attached: ${msg.imageUrl}]\n`;
+        }
+        if (msg.videoUrl) {
+            content += `[Video Attached: ${msg.videoUrl}]\n`;
+        }
+        if (msg.fileName) {
+            content += `[File Attached: ${msg.fileName}]\n`;
+        }
+        content += '\n---\n\n';
+    });
+    return content;
+};
+
 
 // --- API ROUTES ---
 
@@ -588,6 +617,33 @@ app.get('/api/rag-documents/:repository', async (req: Request, res: Response) =>
         res.status(500).json({ error: 'Failed to fetch RAG documents' });
     }
 });
+
+app.post('/api/rag-documents/save-chat', async (req: Request, res: Response) => {
+    const { chat, repository } = req.body;
+    if (!chat || !chat.messages || !repository) {
+        return res.status(400).json({ error: 'Chat data and repository are required.' });
+    }
+
+    try {
+        const chatContent = formatChatMessages(chat.name, chat.messages);
+        const originalFilename = `chat_${chat.name.replace(/\s/g, '_')}_${Date.now()}.txt`;
+        const filename = `${Date.now()}-${originalFilename}`;
+        const filePath = path.join('uploads', filename);
+
+        fs.writeFileSync(filePath, chatContent, 'utf-8');
+
+        const result = await pool.query(
+            'INSERT INTO rag_documents (filename, original_filename, content, repository) VALUES ($1, $2, $3, $4) RETURNING id, filename, original_filename, repository, created_at',
+            [filename, originalFilename, chatContent, repository]
+        );
+
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('Save Chat to RAG Error:', error);
+        res.status(500).json({ error: 'Failed to save chat to RAG' });
+    }
+});
+
 
 app.post('/api/rag-documents/:repository/upload', upload.single('file'), async (req: Request, res: Response) => {
     const { repository } = req.params;
