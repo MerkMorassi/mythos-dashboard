@@ -29,9 +29,9 @@ If you don't have them, download and install Node.js from [nodejs.org](https://n
 ### PostgreSQL Database with pgvector
 
 -   **PostgreSQL:** Version 14.x or higher is required.
--   **pgvector extension:** This is critical for the RAG system's capabilities.
+-   **`pgvector` extension:** This is critical for the RAG system's capabilities.
 
-There are two recommended ways to set up your database:
+Choose one of the two recommended ways to set up your database:
 
 #### Option A: Docker (Recommended)
 If you have Docker installed, this is the easiest way to get a compatible database running.
@@ -45,7 +45,7 @@ docker run -d \
   -v mythos_db_data:/var/lib/postgresql/data \
   ankane/pgvector
 ```
-Replace `your_secret_password` with a strong password. This command creates a persistent database that will save your data even if you stop the container.
+Replace `your_secret_password` with a strong password. This command creates a persistent database that will save your data even if you stop the container. The `pgvector` extension is automatically enabled. You can skip to [Step 2.4](#step-24-configure-environment-variables).
 
 #### Option B: Manual Installation
 1.  **Install PostgreSQL:** Download the installer from the [official PostgreSQL website](https://www.postgresql.org/download/). During installation, you will set a password for the default `postgres` user. Remember this password.
@@ -74,17 +74,39 @@ Install all the required Node.js packages for the server:
 npm install
 ```
 
-### Step 2.3: Set Up the Database
+### Step 2.3: Set Up the Database (Manual Install Only)
 
-1.  **Create a Database:** Using a tool like `psql` or a GUI client (like DBeaver), connect to your PostgreSQL instance. Create a new database for the application.
-    ```sql
-    CREATE DATABASE mythos_dashboard;
+If you used Docker in the prerequisite step, you can skip to Step 2.4.
+
+1.  **Connect to PostgreSQL:** Open your terminal and connect to the default PostgreSQL instance using the `psql` command-line tool. You will be prompted for the password you set during installation.
+    ```bash
+    psql -U postgres
     ```
-2.  **Enable pgvector:** After creating the database, connect to it and run the following command to enable the vector extension:
+2.  **Create a User (Optional but Recommended):** Create a dedicated user for the application.
     ```sql
-    CREATE EXTENSION IF NOT EXISTS vector;
+    CREATE USER mythos_user WITH PASSWORD 'your_secret_password';
     ```
-    If this command fails, it means `pgvector` was not installed correctly in the previous step.
+3.  **Create the Database:**
+    ```sql
+    CREATE DATABASE mythos_dashboard OWNER mythos_user;
+    ```
+4.  **Connect to the New Database:**
+    ```sql
+    \c mythos_dashboard
+    ```
+5.  **Enable the pgvector Extension:** This is a crucial step.
+    ```sql
+    CREATE EXTENSION vector;
+    ```
+6.  **Verify Installation:** Check that the extension is active.
+    ```sql
+    \dx
+    ```
+    You should see `vector` listed in the output.
+7.  **Exit psql:**
+    ```sql
+    \q
+    ```
 
 ### Step 2.4: Configure Environment Variables
 
@@ -97,7 +119,7 @@ The application uses a `.env` file to manage secret keys and configuration.
 2.  Open the new `.env` file in your editor.
 3.  Fill in the required values:
     -   `API_KEY`: Your Google Gemini API key from Google AI Studio.
-    -   `PG_USER`, `PG_HOST`, `PG_DATABASE`, `PG_PASSWORD`, `PG_PORT`: Your database connection details from the previous steps.
+    -   `PG_USER`, `PG_HOST`, `PG_DATABASE`, `PG_PASSWORD`, `PG_PORT`: Your database connection details from the previous steps. If you used the Docker command, these will be `mythos_user`, `localhost`, `mythos_dashboard`, `your_secret_password`, and `5432` respectively.
 
 ---
 

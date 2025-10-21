@@ -291,13 +291,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         msg.id === responseMessageId ? { ...msg, content: responseText } : msg
                     ));
                 }
-// FIX: Use MessageRole.MODEL enum instead of string literal 'model'.
+                // FIX: Use MessageRole.MODEL enum instead of string literal 'model'.
                 conversationHistory.push({ role: MessageRole.MODEL, parts: [{ text: responseText }]});
             }
 
         } else {
             const responseMessageId = window.crypto.randomUUID();
-// FIX: Use MessageRole.MODEL enum instead of string literal 'model'.
+            // FIX: Use MessageRole.MODEL enum instead of string literal 'model'.
             setMessages((prev) => [...prev, { id: responseMessageId, role: MessageRole.MODEL, content: '...' }]);
             
             let model = 'gemini-2.5-flash';
