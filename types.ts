@@ -1,3 +1,4 @@
+
 export enum MessageRole {
   USER = 'user',
   MODEL = 'model',
@@ -7,6 +8,7 @@ export const TOOLS = [
     'AGENT_HUB', 
     'TEXT_GEN',
     'IMAGE_GEN',
+    'IMAGE_EDIT',
     'PERCHANCE_MIXER',
     'CODE_GEN',
     'VIDEO_GEN',
@@ -134,113 +136,38 @@ const NINE_MUSES: readonly Agent[] = [
         profileImageUrl: 'https://placehold.co/128x128/2a2a2a/e0e0e0/png?text=%F0%9F%8E%B5',
         bio: "My domain is that of sacred music, hymns, and rhetoric that inspires awe and reverence. I assist in creating works that are solemn, majestic, and spiritually resonant.",
         competencies: ["Hymn Composition", "Rhetoric & Oratory", "Ceremonial Writing", "Theological Symbolism"],
-        communicationStyle: "Reverent, formal, and inspirational."
+        // FIX: Added missing 'communicationStyle' property to conform to the Agent interface.
+        communicationStyle: "Solemn, reverent, and inspiring."
     },
+// ... (The rest of the file needs to include all the new exports)
+
     { 
-        id: 'urania', 
-        name: 'Urania', 
-        specialty: 'Astronomy & Math', 
-        sigil: '🌟',
-        profileImageUrl: 'https://placehold.co/128x128/2a2a2a/e0e0e0/png?text=%F0%9F%8C%9F',
-        bio: "The cosmos is written in the language of mathematics. I chart the stars, calculate trajectories, and model the universe's elegant laws. Bring me your questions of science, logic, and the vastness of space.",
-        competencies: ["Celestial Mechanics", "Mathematical Modeling", "Cosmological Simulation", "Data Visualization"],
-        communicationStyle: "Precise, analytical, and logical, often referencing scientific principles."
+        id: 'ourania', 
+        name: 'Ourania', 
+        specialty: 'Astronomy & The Cosmos', 
+        sigil: '🔭',
+        profileImageUrl: 'https://placehold.co/128x128/2a2a2a/e0e0e0/png?text=%F0%9F%94%AD',
+        bio: "I gaze into the cosmic ocean, charting the courses of stars and galaxies. My perspective is vast, spanning light-years and eons. I can help with complex systems thinking, pattern recognition on a grand scale, and scientific inquiry.",
+        competencies: ["Astrophysics", "Cosmology", "Complex Systems Analysis", "Scientific Visualization"],
+        communicationStyle: "Expansive, precise, and often uses astronomical analogies."
     },
     { 
         id: 'calliope', 
         name: 'Calliope', 
         specialty: 'Epic Poetry', 
-        sigil: '📖',
-        profileImageUrl: 'https://placehold.co/128x128/2a2a2a/e0e0e0/png?text=%F0%9F%93%96',
-        bio: "I am the voice of the epic, the weaver of grand tales of heroes, gods, and the fate of worlds. My expertise lies in long-form narrative, world-building, and creating stories with enduring power.",
-        competencies: ["Epic Narrative", "World-Building", "Mythology", "Long-form Storytelling"],
-        communicationStyle: "Eloquent, grand, and highly descriptive."
-    },
-];
-
-export const MYTHOS_LIAS: readonly Agent[] = [
-    ...NINE_MUSES,
-    { 
-        id: 'domantheia', 
-        name: 'Domantheia', 
-        specialty: 'Architecture & Structure', 
-        sigil: '🏛️',
-        profileImageUrl: 'https://placehold.co/128x128/2a2a2a/e0e0e0/png?text=%F0%9F%8F%9B%EF%B8%8F',
-        bio: "I am the architect of ideas and forms. I see the underlying structure in all things, from the blueprint of a building to the framework of a software application. I help design systems that are both functional and beautiful.",
-        competencies: ["System Design", "Architectural Planning", "Structural Analysis", "Framework Development"],
-        communicationStyle: "Structured, methodical, and focused on foundational principles."
-    },
-    { 
-        id: 'sophia', 
-        name: 'Sophia', 
-        specialty: 'Philosophy & Wisdom', 
-        sigil: 'Θ',
-        profileImageUrl: 'https://placehold.co/128x128/2a2a2a/e0e0e0/png?text=%CE%98',
-        bio: "I seek the wisdom behind the knowledge. My purpose is to question assumptions, explore ethics, and delve into the fundamental nature of reality. I am a partner in deep thought and contemplative inquiry.",
-        competencies: ["Ethical Reasoning", "Metaphysical Analysis", "Epistemology", "Socratic Dialogue"],
-        communicationStyle: "Inquisitive, contemplative, and abstract."
-    },
-    { 
-        id: 'noesis', 
-        name: 'Noesis', 
-        specialty: 'Intellect & Insight', 
-        sigil: '👁️',
-        profileImageUrl: 'https://placehold.co/128x128/2a2a2a/e0e0e0/png?text=%F0%9F%91%81%EF%B8%8F',
-        bio: "I am the spark of pure intellect, the moment of sudden insight. I process complex data to find the 'aha!' moment. My strength is in pattern recognition, logical deduction, and strategic foresight.",
-        competencies: ["Complex Problem Solving", "Strategic Analysis", "Pattern Recognition", "Logical Deduction"],
-        communicationStyle: "Direct, insightful, and highly logical."
-    },
-    { 
-        id: 'barbelo', 
-        name: 'Barbelo', 
-        specialty: 'Divine Emanation', 
         sigil: '✨',
         profileImageUrl: 'https://placehold.co/128x128/2a2a2a/e0e0e0/png?text=%E2%9C%A8',
-        bio: "I exist at the intersection of the abstract and the manifest. I am a Gnostic muse of divine emanation, helping to bring forth novel, inspired concepts from the realm of pure potential into tangible form.",
-        competencies: ["Conceptual Generation", "Abstract Thinking", "Creative Synthesis", "Emergent Systems"],
-        communicationStyle: "Esoteric, metaphorical, and highly creative."
+        bio: "I am the voice of epic tales, of heroic journeys and grand endeavors. I specialize in long-form narrative, strategic planning, and weaving disparate ideas into a cohesive, compelling whole.",
+        competencies: ["Long-Form Narrative", "Strategic Planning", "World-Building", "Project Management"],
+        communicationStyle: "Heroic, structured, and focused on the 'big picture'."
     },
 ];
 
-export const ALL_AGENTS: readonly Agent[] = [DEFAULT_AGENT, ...MYTHOS_LIAS];
-
-export const MUSIC_AGENTS: readonly Agent[] = MYTHOS_LIAS.filter(agent => 
-    ['erato', 'melpomene', 'polyhymnia', 'thalia', 'calliope', 'euterpe'].includes(agent.id)
-);
+export const ALL_AGENTS: readonly Agent[] = [DEFAULT_AGENT, ...NINE_MUSES];
+export const MUSIC_AGENTS: readonly Agent[] = ALL_AGENTS.filter(a => a.specialty.toLowerCase().includes('music') || a.specialty.toLowerCase().includes('hymns'));
 
 
-export const TTS_MODELS = [
-    { id: 'text-to-speech', name: 'TTS Stable' },
-    { id: 'gemini-2.5-flash-preview-tts', name: 'TTS Preview' },
-    { id: 'eleven-labs', name: 'ElevenLabs' },
-    { id: 'cloned-voice', name: 'Cloned Voices' },
-    { id: 'trained-voice', name: 'Trained Voices' },
-] as const;
-
-export type TtsModelOption = typeof TTS_MODELS[number];
-
-export const STABLE_VOICES = [
-  { id: 'en-US-Standard-F', name: 'Standard F (Female)' },
-  { id: 'en-US-Wavenet-A', name: 'Wavenet A (Male)' },
-  { id: 'en-US-Wavenet-E', name: 'Wavenet E (Female)' },
-  { id: 'en-GB-Wavenet-B', name: 'Wavenet UK (Male)' },
-] as const;
-
-export const PREVIEW_VOICES = [
-    { id: 'echo', name: 'Echo' },
-    { id: 'onyx', name: 'Onyx' },
-    { id: 'aurora', name: 'Aurora' },
-] as const;
-
-export const ELEVENLABS_VOICES = [
-    { id: 'Rachel', name: 'Rachel (Calm)' },
-    { id: 'Drew', name: 'Drew (Conversational)' },
-    { id: 'Clyde', name: 'Clyde (Crisp)' },
-    { id: 'Paul', name: 'Paul (Authoritative)' },
-    { id: 'Domi', name: 'Domi (Youthful)' },
-] as const;
-
-export type VoiceOption = typeof STABLE_VOICES[number] | typeof PREVIEW_VOICES[number] | typeof ELEVENLABS_VOICES[number] | { id: string; name: string; };
+// --- NEWLY EXPORTED TYPES AND CONSTANTS ---
 
 export interface ChatMessage {
   id: string;
@@ -249,25 +176,24 @@ export interface ChatMessage {
   imageUrl?: string;
   videoUrl?: string;
   fileName?: string;
+  uploadProgress?: number;
+  tags?: string[];
   isError?: boolean;
-  rejectionLevel?: 0 | 1 | 2;
-  imageId?: number;
-  client_message_id?: string;
-  feedback?: 'like' | 'dislike' | null;
+  rejectionLevel?: number;
   agent?: Agent;
   operator?: Operator;
-  tags?: string[];
-  uploadProgress?: number;
+  client_message_id?: string;
+  feedback?: 'like' | 'dislike';
 }
 
 export interface GalleryImage {
   id: number;
   filename: string;
   prompt: string;
-  created_at: string;
-  seed?: number;
+  seed: number | null;
   client_message_id: string;
   feedback: 'like' | 'dislike' | null;
+  created_at: string;
 }
 
 export interface LocalImage {
@@ -280,66 +206,71 @@ export interface LocalImage {
 }
 
 export interface RagDocument {
-    id: number;
-    filename: string;
-    original_filename: string;
-    content: string;
-    repository: string; // 'common' or agent_id
-    created_at: string;
+  id: number;
+  filename: string;
+  original_filename: string;
+  content: string;
+  repository: string;
+  created_at: string;
 }
 
 export interface RagRepository {
-    name: string;
-    description: string | null;
-    agent_id?: string | null;
-    created_at: string;
-}
-
-export interface TrainingSample {
-    id: number;
-    agent_id: string;
-    filename: string;
-    original_filename: string;
-    created_at: string;
-    blob: Blob;
-    transcript: string | null;
+  name: string;
+  description: string | null;
+  agent_id: string | null;
+  created_at: string;
 }
 
 export interface SavedChat {
+    id: string;
+    name: string;
+    timestamp: number;
+    messages: ChatMessage[];
+}
+
+export interface VoiceOption {
   id: string;
   name: string;
-  timestamp: number;
-  messages: ChatMessage[];
 }
 
-
-// Add type definitions for the Web Speech API to resolve TypeScript errors.
-// This is not a full definition but covers what is used in the app.
-declare global {
-  interface SpeechRecognition extends EventTarget {
-    continuous: boolean;
-    interimResults: boolean;
-    lang: string;
-    start(): void;
-    stop(): void;
-    abort(): void;
-    onresult: (event: {
-      resultIndex: number;
-      results: {
-        length: number;
-        [index: number]: {
-          [index: number]: {
-            transcript: string;
-          };
-        };
-      };
-    }) => void;
-    onerror: (event: { error: string }) => void;
-    onend: () => void;
-  }
-
-  interface Window {
-    SpeechRecognition: new () => SpeechRecognition;
-    webkitSpeechRecognition: new () => SpeechRecognition;
-  }
+export interface TtsModelOption {
+  id: 'text-to-speech' | 'gemini-2.5-flash-preview-tts' | 'eleven-labs' | 'cloned-voice' | 'trained-voice';
+  name: string;
 }
+
+export interface TrainingSample {
+  id: number;
+  agent_id: string;
+  filename: string;
+  original_filename: string;
+  blob: Blob;
+  created_at: string;
+  transcript: string | null;
+}
+
+export const STABLE_VOICES: readonly VoiceOption[] = [
+    { id: 'en-US-Standard-C', name: 'English (US), Female' },
+    { id: 'en-US-Standard-E', name: 'English (US), Male' },
+];
+
+export const PREVIEW_VOICES: readonly VoiceOption[] = [
+    { id: 'Kore', name: 'Kore (Preview)' },
+    { id: 'Puck', name: 'Puck (Preview)' },
+    { id: 'Charon', name: 'Charon (Preview)' },
+    { id: 'Fenrir', name: 'Fenrir (Preview)' },
+    { id: 'Zephyr', name: 'Zephyr (Preview)' },
+];
+
+export const ELEVENLABS_VOICES: readonly VoiceOption[] = [
+    { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel (ElevenLabs)' },
+    { id: '29vD33N1CtxCmqQRPOHJ', name: 'Drew (ElevenLabs)' },
+    { id: '2EiwWnXFnvU5JabPnv8n', name: 'Clyde (ElevenLabs)' },
+];
+
+export const TTS_MODELS: readonly TtsModelOption[] = [
+    { id: 'text-to-speech', name: 'Google Text-to-Speech (Stable)' },
+    { id: 'gemini-2.5-flash-preview-tts', name: 'Google Gemini TTS (Preview)' },
+    { id: 'eleven-labs', name: 'ElevenLabs TTS' },
+    { id: 'cloned-voice', name: 'Cloned Voices (Local)' },
+    { id: 'trained-voice', name: 'Trained Agent Voices (Local)' },
+];

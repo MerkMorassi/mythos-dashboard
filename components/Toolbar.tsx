@@ -3,6 +3,7 @@ import type { Tool } from '../types';
 import AnalyzeIcon from './icons/AnalyzeIcon';
 import AgentHubIcon from './icons/AgentHubIcon';
 import ImageIcon from './icons/ImageIcon';
+import EditIcon from './icons/EditIcon';
 import VideoIcon from './icons/VideoIcon';
 import DetectorIcon from './icons/DetectorIcon';
 import FileIcon from './icons/FileIcon';
@@ -109,6 +110,7 @@ const Toolbar: React.FC = () => {
         {renderToolGroup('Generate', 'generate', <>
             <ToolButton label="Text" isActive={activeTool === 'TEXT_GEN'} onClick={() => handleToolChange('TEXT_GEN')} isCollapsed={isLeftSidebarCollapsed}><TextIcon /></ToolButton>
             <ToolButton label="Image" isActive={activeTool === 'IMAGE_GEN'} onClick={() => handleToolChange('IMAGE_GEN')} isCollapsed={isLeftSidebarCollapsed}><ImageIcon /></ToolButton>
+            <ToolButton label="Edit Image" isActive={activeTool === 'IMAGE_EDIT'} onClick={() => handleToolChange('IMAGE_EDIT')} isCollapsed={isLeftSidebarCollapsed}><EditIcon /></ToolButton>
             <ToolButton label="Image Mixer" isActive={rightPanelContent === 'PERCHANCE'} onClick={() => handleToolChange('PERCHANCE_MIXER')} isCollapsed={isLeftSidebarCollapsed}><ImageMixerIcon /></ToolButton>
             <ToolButton label="Code" isActive={activeTool === 'CODE_GEN'} onClick={() => handleToolChange('CODE_GEN')} isCollapsed={isLeftSidebarCollapsed}><CodeIcon /></ToolButton>
             <ToolButton label="Video" isActive={activeTool === 'VIDEO_GEN'} onClick={() => handleToolChange('VIDEO_GEN')} isCollapsed={isLeftSidebarCollapsed}><VideoIcon /></ToolButton>

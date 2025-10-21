@@ -30,7 +30,7 @@ const RagManager: React.FC = () => {
     const [newRepoName, setNewRepoName] = useState('');
     const [newRepoAgentId, setNewRepoAgentId] = useState<string>('');
     const [isCreatingRepo, setIsCreatingRepo] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     const loadDocuments = useCallback(async () => {
         setIsLoading(true);

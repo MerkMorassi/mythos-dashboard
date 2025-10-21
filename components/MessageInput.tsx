@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { Tool, GalleryImage } from '../types';
 import SendIcon from './icons/SendIcon';
@@ -10,6 +9,7 @@ import AudioIcon from './icons/AudioIcon';
 import AlertTriangleIcon from './icons/AlertTriangleIcon';
 import CloseIcon from './icons/CloseIcon';
 import TrashIcon from './icons/TrashIcon';
+import ChevronRightIcon from './icons/ChevronRightIcon';
 import { useChat } from '../contexts/ChatContext';
 import { useTools } from '../contexts/ToolContext';
 
@@ -38,12 +38,14 @@ const MessageInput: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [isTipsOpen, setIsTipsOpen] = useState(false);
   
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const imageFileInputRef = useRef<HTMLInputElement | null>(null);
   const docFileInputRef = useRef<HTMLInputElement | null>(null);
   const audioFileInputRef = useRef<HTMLInputElement | null>(null);
-  const speechRecognitionRef = useRef<SpeechRecognition | null>(null);
+  // FIX: Changed SpeechRecognition to any to handle browser-specific implementations and avoid type errors.
+  const speechRecognitionRef = useRef<any | null>(null);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -57,14 +59,15 @@ const MessageInput: React.FC = () => {
   }, [input]);
 
   useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    // FIX: Cast window to 'any' to access non-standard SpeechRecognition APIs without TypeScript errors.
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
 
-      recognition.onresult = (event) => {
+      recognition.onresult = (event: any) => {
         let transcript = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
           transcript += event.results[i][0].transcript;
@@ -72,7 +75,7 @@ const MessageInput: React.FC = () => {
         setInput(transcript);
       };
       
-      recognition.onerror = (event) => {
+      recognition.onerror = (event: any) => {
         console.error("Speech recognition error:", event.error);
         setIsRecording(false);
       }
@@ -152,6 +155,8 @@ const MessageInput: React.FC = () => {
         return { placeholder: 'Send a message...', sendDisabled: isLoading || (!input.trim() && !imageFile && !docFile && !audioFile), showCamera: true, showPaperclip: true, showAudioUpload: true, acceptImage: ACCEPTED_IMAGE_TYPES, acceptDoc: ACCEPTED_CODE_TYPES, acceptAudio: ACCEPTED_AUDIO_TYPES };
       case 'IMAGE_GEN':
         return { placeholder: 'Describe an image to generate...', sendDisabled: isLoading || !input.trim(), showCamera: false, showPaperclip: false, showAudioUpload: false };
+      case 'IMAGE_EDIT':
+        return { placeholder: 'Describe the changes to make to the uploaded image...', sendDisabled: isLoading || !imageFile || !input.trim(), showCamera: true, showPaperclip: false, showAudioUpload: false, textInputDisabled: false, acceptImage: ACCEPTED_IMAGE_TYPES };
       case 'CODE_GEN':
         return { placeholder: 'Describe the code you want to create...', sendDisabled: isLoading || !input.trim(), showCamera: false, showPaperclip: false, showAudioUpload: false };
       case 'TEXT_GEN':
@@ -268,7 +273,7 @@ const MessageInput: React.FC = () => {
     }
   };
 
-  const isSpeechSupported = !!(typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window));
+  const isSpeechSupported = !!(typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition));
   
   const handleDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -370,6 +375,23 @@ const MessageInput: React.FC = () => {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
+      {activeTool === 'IMAGE_GEN' && (
+        <div className="mb-2 p-3 bg-secondary rounded-lg border border-accent text-sm transition-all duration-300">
+          <button onClick={() => setIsTipsOpen(!isTipsOpen)} className="font-bold text-text-secondary w-full text-left flex justify-between items-center hover:text-text-primary">
+            <span>Tips for image generation prompts</span>
+            <ChevronRightIcon className={`w-5 h-5 transition-transform ${isTipsOpen ? 'rotate-90' : ''}`} />
+          </button>
+          {isTipsOpen && (
+            <div className="mt-2 text-text-secondary pt-2 border-t border-accent/50">
+              <ul className="list-disc list-inside space-y-1">
+                <li>Start your prompt with words like <strong>draw, generate,</strong> and <strong>create</strong>.</li>
+                <li>Describe the image style you want. Examples: <strong>photorealistic, charcoal drawing, watercolor painting, cartoon illustration</strong>.</li>
+                <li>Include a detailed visual description of what you want in the image (subject, action, background).</li>
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
       {fileError && (
         <div className="flex items-center justify-between text-red-400 text-sm mb-2 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
             <div className="flex items-center gap-2">

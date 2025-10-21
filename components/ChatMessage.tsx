@@ -13,6 +13,7 @@ import EditIcon from './icons/EditIcon';
 import CheckIcon from './icons/CheckIcon';
 import ThumbsUpIcon from './icons/ThumbsUpIcon';
 import ThumbsDownIcon from './icons/ThumbsDownIcon';
+import ImageIcon from './icons/ImageIcon';
 import { useChat } from '../contexts/ChatContext';
 import { useTools } from '../contexts/ToolContext';
 import ReactMarkdown from 'react-markdown';
@@ -40,6 +41,15 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isSpeaking }) => {
       </div>
     );
   }
+  
+  const ImagePlaceholder = () => (
+    <div className="flex flex-col items-center justify-center p-8 bg-black/20 rounded-lg animate-pulse">
+      <div className="text-text-secondary">
+        <ImageIcon />
+      </div>
+      <p className="mt-2 text-sm text-text-secondary">Generating your image...</p>
+    </div>
+  );
 
   const handleCopy = () => {
     // Copy the original markdown content
@@ -61,7 +71,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isSpeaking }) => {
   }`;
 
   const hasContent = message.content || message.imageUrl || message.videoUrl;
-  const isPlaceholder = message.content === '...';
+  const isImagePlaceholder = message.content === '...' && message.tags?.includes('image_generation_placeholder');
+  const isPlaceholder = message.content === '...'; // Keep for general placeholders
   const hasFeedbackButtons = !isUser && hasContent && !isPlaceholder;
   const agentAuthorName = message.agent ? message.agent.name : 'Assistant';
   const userAuthorName = message.operator ? message.operator.name : 'User';
@@ -106,32 +117,38 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isSpeaking }) => {
             <div className="text-xs text-text-secondary font-bold">{agentAuthorName}</div>
         )}
         <div className={`${messageClasses} w-full`}>
-          {message.videoUrl && (
-            <div className="mb-2 rounded-md bg-[#202020] border border-accent overflow-hidden">
-                <video src={message.videoUrl} controls className="w-full"></video>
-            </div>
-          )}
-          {message.imageUrl && (
-             <div className="mb-2 p-1 rounded-md bg-[#202020] border border-accent inline-block">
-               <img 
-                 src={message.imageUrl} 
-                 alt="User upload" 
-                 className="rounded-md max-w-full h-auto"
-               />
-             </div>
-          )}
-          {message.fileName && (
-            <div className="rounded-md mb-2 p-3 bg-black bg-opacity-20 flex items-center text-sm">
-              <FileIcon />
-              <span className="truncate">{message.fileName}</span>
-            </div>
-          )}
-          {message.content && (
-            <div className="markdown-content">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                {message.content}
-              </ReactMarkdown>
-            </div>
+          {isImagePlaceholder ? (
+            <ImagePlaceholder />
+          ) : (
+            <>
+              {message.videoUrl && (
+                <div className="mb-2 rounded-md bg-[#202020] border border-accent overflow-hidden">
+                    <video src={message.videoUrl} controls className="w-full"></video>
+                </div>
+              )}
+              {message.imageUrl && (
+                 <div className="mb-2 p-1 rounded-md bg-[#202020] border border-accent inline-block">
+                   <img 
+                     src={message.imageUrl} 
+                     alt="User upload" 
+                     className="rounded-md max-w-full h-auto"
+                   />
+                 </div>
+              )}
+              {message.fileName && (
+                <div className="rounded-md mb-2 p-3 bg-black bg-opacity-20 flex items-center text-sm">
+                  <FileIcon />
+                  <span className="truncate">{message.fileName}</span>
+                </div>
+              )}
+              {message.content && (
+                <div className="markdown-content">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                    {message.content}
+                  </ReactMarkdown>
+                </div>
+              )}
+            </>
           )}
           {showProgressBar && (
             <div className="mt-2 h-2 w-full bg-accent rounded-full overflow-hidden">
@@ -141,7 +158,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isSpeaking }) => {
                 ></div>
             </div>
           )}
-          {message.tags && message.tags.length > 0 && (
+          {message.tags && message.tags.length > 0 && !isImagePlaceholder && (
               <div className="mt-3 pt-2 border-t border-accent/50">
                   <div className="flex flex-wrap gap-2">
                       {message.tags.map((tag, index) => (

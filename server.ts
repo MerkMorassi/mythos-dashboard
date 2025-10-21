@@ -1,4 +1,5 @@
 
+
 // FIX: Combined express imports to resolve type conflicts with Request, Response, and NextFunction, which were causing numerous errors throughout the file.
 // FIX: Aliased express types to resolve conflicts with global fetch API types (Request, Response)
 import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction as ExpressNextFunction } from 'express';
@@ -334,7 +335,7 @@ app.post('/api/generate-video', upload.single('image'), async (req: ExpressReque
         if (imageFile) {
             finalSourceFilename = imageFile.filename;
             operation = await ai.models.generateVideos({
-                model: 'veo-2.0-generate-001',
+                model: 'veo-3.1-fast-generate-preview',
                 prompt,
                 image: {
                     imageBytes: fs.readFileSync(imageFile.path).toString('base64'),
@@ -347,7 +348,7 @@ app.post('/api/generate-video', upload.single('image'), async (req: ExpressReque
                 return res.status(404).json({ error: 'Source image not found' });
             }
             operation = await ai.models.generateVideos({
-                model: 'veo-2.0-generate-001',
+                model: 'veo-3.1-fast-generate-preview',
                 prompt,
                 image: {
                     imageBytes: fs.readFileSync(imagePath).toString('base64'),
@@ -356,7 +357,7 @@ app.post('/api/generate-video', upload.single('image'), async (req: ExpressReque
             });
         } else {
             operation = await ai.models.generateVideos({
-                model: 'veo-2.0-generate-001',
+                model: 'veo-3.1-fast-generate-preview',
                 prompt,
             });
         }

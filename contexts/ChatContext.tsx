@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import type { ChatMessage as Message, Tool, Agent, SavedChat } from '../types';
 import { MessageRole, ALL_AGENTS } from '../types';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Modality } from '@google/genai';
 import type { Part } from '@google/genai';
 import { synthesizeSpeech, submitFeedback, saveChatToRag } from '../services/geminiService';
 import { getClonedVoiceBlob, getFirstTrainingSampleBlob } from '../services/dbService';
@@ -291,14 +291,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         msg.id === responseMessageId ? { ...msg, content: responseText } : msg
                     ));
                 }
-                // FIX: Use MessageRole.MODEL enum instead of string literal 'model'.
-                conversationHistory.push({ role: MessageRole.MODEL, parts: [{ text: responseText }]});
+                conversationHistory.push({ role: 'model', parts: [{ text: responseText }]});
             }
 
         } else {
             const responseMessageId = window.crypto.randomUUID();
-            // FIX: Use MessageRole.MODEL enum instead of string literal 'model'.
-            setMessages((prev) => [...prev, { id: responseMessageId, role: MessageRole.MODEL, content: '...' }]);
+            setMessages((prev) => [...prev, { id: responseMessageId, role: 'model', content: '...' }]);
             
             let model = 'gemini-2.5-flash';
             let parts: Part[] = [{ text: userPrompt }];
@@ -348,8 +346,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLastGeneratedImageBase64(null);
     const responseMessageId = window.crypto.randomUUID();
     
+    setMessages(prev => [...prev, { id: responseMessageId, role: MessageRole.MODEL, content: '...', tags: ['image_generation_placeholder'] }]);
+    
     try {
-        setMessages(prev => [...prev, { id: responseMessageId, role: MessageRole.MODEL, content: 'Generating image...' }]);
         const ai = new GoogleGenAI({apiKey});
         const response = await ai.models.generateImages({
             model: 'imagen-4.0-generate-001',
@@ -379,6 +378,51 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
   
+  const handleEditImage = async (prompt: string, file: File) => {
+    if (!apiKey) {
+      addMessage({ role: MessageRole.MODEL, content: "API key is not set.", isError: true });
+      return;
+    }
+    const userMessage: Omit<Message, 'id'> = {
+        role: MessageRole.USER,
+        content: prompt,
+        imageUrl: URL.createObjectURL(file),
+        operator: activeOperator,
+    };
+    addMessage(userMessage);
+    setIsLoading(true);
+    setLastGeneratedImageBase64(null); // Clear previous image
+    const responseMessageId = window.crypto.randomUUID();
+    setMessages(prev => [...prev, { id: responseMessageId, role: MessageRole.MODEL, content: '...', tags: ['image_generation_placeholder'] }]);
+
+    try {
+        const ai = new GoogleGenAI({apiKey});
+        const imagePart = await fileToGenerativePart(file);
+        const textPart = { text: prompt };
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: { parts: [imagePart, textPart] },
+            config: { responseModalities: [Modality.IMAGE] }
+        });
+
+        const imagePartResponse = response.candidates?.[0]?.content?.parts.find(p => p.inlineData);
+        if (!imagePartResponse || !imagePartResponse.inlineData) throw new Error("API did not return an edited image.");
+
+        const base64Image = imagePartResponse.inlineData.data;
+        const imageUrl = `data:${imagePartResponse.inlineData.mimeType};base64,${base64Image}`;
+        setLastGeneratedImageBase64(base64Image); // Save for potential video generation
+
+        setMessages(prev => prev.map(msg => msg.id === responseMessageId ? { ...msg, content: '', imageUrl, client_message_id: responseMessageId } : msg));
+    } catch (error) {
+        console.error('Error editing image:', error);
+        const errorMessage = `Image editing failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        setMessages(prev => prev.map(msg => msg.id === responseMessageId ? { ...msg, content: errorMessage, isError: true } : msg));
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
   const handleAnalyzeImage = async (prompt: string, file: File) => {
     if (!apiKey) {
       addMessage({ role: MessageRole.MODEL, content: "API key is not set.", isError: true });
@@ -579,6 +623,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         break;
       case 'IMAGE_GEN':
         handleGenerateImage(message);
+        break;
+      case 'IMAGE_EDIT':
+        if(file) handleEditImage(message, file);
         break;
       case 'IMAGE_ANALYSIS':
         if(file) handleAnalyzeImage(message, file);
