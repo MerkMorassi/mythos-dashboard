@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import type { Tool } from '../types';
 import AnalyzeIcon from './icons/AnalyzeIcon';
@@ -25,6 +24,7 @@ import OperatorIcon from './icons/OperatorIcon';
 import MidiIcon from './icons/MidiIcon';
 import SettingsIcon from './icons/SettingsIcon';
 import HistoryIcon from './icons/HistoryIcon';
+import FlowIcon from './icons/FlowIcon';
 import { useTools } from '../contexts/ToolContext';
 
 const ToolButton: React.FC<{
@@ -112,6 +112,7 @@ const Toolbar: React.FC = () => {
             <ToolButton label="Image Mixer" isActive={rightPanelContent === 'PERCHANCE'} onClick={() => handleToolChange('PERCHANCE_MIXER')} isCollapsed={isLeftSidebarCollapsed}><ImageMixerIcon /></ToolButton>
             <ToolButton label="Code" isActive={activeTool === 'CODE_GEN'} onClick={() => handleToolChange('CODE_GEN')} isCollapsed={isLeftSidebarCollapsed}><CodeIcon /></ToolButton>
             <ToolButton label="Video" isActive={activeTool === 'VIDEO_GEN'} onClick={() => handleToolChange('VIDEO_GEN')} isCollapsed={isLeftSidebarCollapsed}><VideoIcon /></ToolButton>
+            <ToolButton label="Flow" isActive={activeTool === 'FLOW'} onClick={() => handleToolChange('FLOW')} isCollapsed={isLeftSidebarCollapsed}><FlowIcon /></ToolButton>
             <ToolButton label="Suno" isActive={rightPanelContent === 'SUNO'} onClick={() => handleToolChange('SUNO_MUSIC')} isCollapsed={isLeftSidebarCollapsed}><SunoIcon /></ToolButton>
             <ToolButton label="Speech" isActive={rightPanelContent === 'TTS'} onClick={handleToggleTtsPanel} isCollapsed={isLeftSidebarCollapsed}><TtsIcon /></ToolButton>
         </>)}

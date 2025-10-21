@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import type { Tool, VoiceOption, TtsModelOption, GalleryImage, Operator, TrainingSample, Agent, RagRepository } from '../types';
 import { ALL_AGENTS, ELEVENLABS_VOICES, HITL_OPERATORS, PREVIEW_VOICES, STABLE_VOICES, TTS_MODELS, MessageRole } from '../types';
 import { addClonedVoice, getAllTrainingSamples, getClonedVoices, initDB, addProfileImage, getAllProfileImages } from '../services/dbService';
-import { analyzeAudioForSunoStyle, createRagRepository, deleteRagRepository, fetchGallery, fetchRagRepositories, generateSunoLyrics } from '../services/geminiService';
+// FIX: Import `analyzeAudioForSunoStyle` to resolve reference error.
+import { createRagRepository, deleteRagRepository, fetchGallery, fetchRagRepositories, generateSunoLyrics, analyzeAudioForSunoStyle } from '../services/geminiService';
 
 interface ToolContextState {
   activeTool: Tool;
@@ -107,50 +108,40 @@ export const ToolProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
   }, []);
 
+  // Server status check
   useEffect(() => {
     const checkServerStatus = async () => {
-        console.log("Checking server status...");
         setServerStatus('checking');
-        for (let i = 0; i < 150; i++) { // Poll for up to 30 seconds
+        // In a serverless environment, this will time out and fail, which is expected.
+        for (let i = 0; i < 50; i++) { // Poll for 10 seconds
             try {
                 const response = await fetch(`/api/health?t=${new Date().getTime()}`);
                 if (response.ok) {
-                    console.log("Server is ready.");
                     setIsServerReady(true);
                     setServerStatus('ready');
                     return;
                 }
-            } catch (error) {
-                // Server not ready, wait and retry
-            }
+            } catch (error) { /* wait and retry */ }
             await new Promise(resolve => setTimeout(resolve, 200));
         }
-        console.error("Server did not become ready in time. API calls may fail.");
         setIsServerReady(false);
         setServerStatus('failed');
     };
     checkServerStatus();
   }, []);
 
+  // Client-side initialization (API key, IndexedDB) - does not depend on server
   useEffect(() => {
-    if (!isServerReady) return;
-
     try {
         const savedKey = localStorage.getItem('gemini-api-key');
         if (savedKey) setApiKey(savedKey);
     } catch (e) {
         console.warn("Could not access localStorage to get API key.");
     }
-
-    const loadData = async () => {
+    const loadClientDbData = async () => {
         try {
             await initDB();
-            const [repos, images] = await Promise.all([
-              fetchRagRepositories(), 
-              getAllProfileImages()
-            ]);
-            setCustomRagRepositories(repos);
-
+            const images = await getAllProfileImages();
             // Revoke any existing URLs before creating new ones
             imageUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
             const newImageUrlMap = new Map<string, string>();
@@ -158,13 +149,28 @@ export const ToolProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 newImageUrlMap.set(img.id, URL.createObjectURL(img.blob));
             }
             setProfileImageUrls(newImageUrlMap);
-
         } catch (error) {
-            console.error("Failed to load initial data:", error);
+            console.error("Failed to load client DB data:", error);
         }
     };
-    loadData();
+    loadClientDbData();
+  }, []);
+
+  // Server-side data fetching - depends on server
+  useEffect(() => {
+    if (!isServerReady) return;
+
+    const loadServerData = async () => {
+        try {
+            const repos = await fetchRagRepositories();
+            setCustomRagRepositories(repos);
+        } catch (error) {
+            console.error("Failed to load server data (RAG repos):", error);
+        }
+    };
+    loadServerData();
   }, [isServerReady]);
+
 
   const handleFetchVoiceData = useCallback(async (forceRefetch = false) => {
     if (voiceDataLoaded && !forceRefetch) return;
@@ -248,6 +254,8 @@ export const ToolProvider: React.FC<{ children: React.ReactNode }> = ({ children
         window.open('/mythos_consciousness_interface.html', '_blank', 'noopener,noreferrer');
     } else if (tool === 'SETTINGS_PANEL') {
         setRightPanelContent(rightPanelContent === 'SETTINGS' ? null : 'SETTINGS');
+    } else if (tool === 'FLOW') {
+        window.open('https://labs.google/fx/tools/flow', '_blank', 'noopener,noreferrer');
     } else {
         setActiveTool(tool);
     }

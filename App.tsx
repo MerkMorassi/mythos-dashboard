@@ -21,6 +21,7 @@ import AgentVoiceModal from './components/AgentVoiceModal';
 import SettingsPanel from './components/SettingsPanel';
 import ChatHistoryPanel from './components/ChatHistoryPanel';
 import SaveToRagModal from './components/SaveToRagModal';
+import VideoGenerationPanel from './components/VideoGenerationPanel';
 import { ChatProvider, useChat } from './contexts/ChatContext';
 import { AgentsProvider, useAgents } from './contexts/AgentsContext';
 import { ToolProvider, useTools } from './contexts/ToolContext';
@@ -39,8 +40,9 @@ const AppContent: React.FC = () => {
 
   const [isDraggingOverChat, setIsDraggingOverChat] = useState(false);
 
-  const isMainView = activeTool !== 'LOCAL_VIEWER' && activeTool !== 'RAG_DB' && activeTool !== 'AUDIO_TO_MIDI';
-  const showMessageInput = isMainView && rightPanelContent !== 'SUNO';
+  const isChatView = activeTool !== 'LOCAL_VIEWER' && activeTool !== 'RAG_DB' && activeTool !== 'AUDIO_TO_MIDI' && activeTool !== 'VIDEO_GEN';
+  const showMessageInput = (isChatView || activeTool === 'VIDEO_GEN') && rightPanelContent !== 'SUNO';
+
 
   const handleChatDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -105,13 +107,12 @@ const AppContent: React.FC = () => {
                     </div>
                 </div>
             )}
-            {!isMainView ? (
-              <>
-                {activeTool === 'LOCAL_VIEWER' && <LocalImageViewer />}
-                {activeTool === 'RAG_DB' && <RagManager />}
-                {activeTool === 'AUDIO_TO_MIDI' && <AudioToMidiConverter />}
-              </>
-            ) : (
+            
+            {activeTool === 'LOCAL_VIEWER' && <LocalImageViewer />}
+            {activeTool === 'RAG_DB' && <RagManager />}
+            {activeTool === 'AUDIO_TO_MIDI' && <AudioToMidiConverter />}
+            {activeTool === 'VIDEO_GEN' && <VideoGenerationPanel />}
+            {isChatView && (
               <div className="h-full overflow-y-auto p-4 md:p-6">
                 <div className="w-full space-y-8">
                   {messages.map((message) => (

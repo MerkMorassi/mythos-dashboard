@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import CloseIcon from './icons/CloseIcon';
 import GripVerticalIcon from './icons/GripVerticalIcon';
 import VoiceTrainIcon from './icons/VoiceTrainIcon';
 import IdCardIcon from './icons/IdCardIcon';
 import SparklesIcon from './icons/SparklesIcon';
-import ChevronRightIcon from './icons/ChevronRightIcon';
+import SearchIcon from './icons/SearchIcon';
 import { useAgents } from '../contexts/AgentsContext';
 import { useTools } from '../contexts/ToolContext';
+import type { Agent } from '../types';
 
 const AgentPanel: React.FC = () => {
   const {
@@ -18,58 +19,65 @@ const AgentPanel: React.FC = () => {
     handleOpenVoiceModal,
     agentSortOrder,
     setAgentSortOrder,
+    loadSavedCustomOrder,
     saveAgentOrder,
     isOrderDirty,
     setIsOrderDirty,
   } = useAgents();
   const { allTrainingSamples, handleOpenAgentProfile, setRightPanelContent } = useTools();
 
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [draggedAgent, setDraggedAgent] = useState<Agent | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  
-  const handleSortChange = (newOrder: 'name' | 'specialty' | 'custom') => {
-      setAgentSortOrder(newOrder);
-      setIsOrderDirty(false);
-  }
 
   const handleSaveClick = () => {
-      saveAgentOrder();
+      saveAgentOrder(displayedAgents);
       setSaveStatus('saving');
       setTimeout(() => {
           setSaveStatus('saved');
-          setTimeout(() => setSaveStatus('idle'), 1500);
+          setTimeout(() => {
+              setSaveStatus('idle');
+              setIsOrderDirty(false);
+          }, 1500);
       }, 500);
   }
 
-  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
-    setDraggedIndex(index);
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, agent: Agent) => {
+    if (agentSortOrder !== 'custom') {
+        setAgentSortOrder('custom');
+    }
+    setDraggedAgent(agent);
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDragEnter = (index: number) => {
-    if (draggedIndex !== null && draggedIndex !== index) {
-      setDragOverIndex(index);
-    }
-  };
-
   const handleDragEnd = () => {
-    setDraggedIndex(null);
-    setDragOverIndex(null);
+    setDraggedAgent(null);
   };
   
-  const handleDrop = (dropIndex: number) => {
-    if (draggedIndex === null || draggedIndex === dropIndex) {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const dropAgentId = e.currentTarget.dataset.agentId;
+
+    if (!draggedAgent || !dropAgentId || draggedAgent.id === dropAgentId) {
       handleDragEnd();
       return;
     }
 
-    const reorderedAgents = [...displayedAgents];
-    const [draggedItem] = reorderedAgents.splice(draggedIndex, 1);
-    reorderedAgents.splice(dropIndex, 0, draggedItem);
-
-    setDisplayedAgents(reorderedAgents);
-    setAgentSortOrder('custom');
+    setDisplayedAgents(prevDisplayedAgents => {
+      const currentAgents = [...prevDisplayedAgents];
+      const draggedItemIndex = currentAgents.findIndex(a => a.id === draggedAgent.id);
+      const dropItemIndex = currentAgents.findIndex(a => a.id === dropAgentId);
+  
+      if (draggedItemIndex === -1 || dropItemIndex === -1) {
+        return prevDisplayedAgents;
+      }
+      
+      const [draggedItem] = currentAgents.splice(draggedItemIndex, 1);
+      currentAgents.splice(dropItemIndex, 0, draggedItem);
+      
+      return currentAgents;
+    });
+    
     setIsOrderDirty(true);
     handleDragEnd();
   };
@@ -81,6 +89,17 @@ const AgentPanel: React.FC = () => {
     }
     return <div className="w-2 h-2 rounded-full bg-gray-500" title="No Training Data"></div>;
   };
+
+  const filteredAgents = useMemo(() => {
+    if (!searchTerm.trim()) {
+        return displayedAgents;
+    }
+    const lowercasedTerm = searchTerm.toLowerCase();
+    return displayedAgents.filter(agent =>
+        agent.name.toLowerCase().includes(lowercasedTerm) ||
+        agent.specialty.toLowerCase().includes(lowercasedTerm)
+    );
+  }, [displayedAgents, searchTerm]);
 
   return (
     <div className="w-full h-full bg-secondary flex flex-col">
@@ -106,71 +125,91 @@ const AgentPanel: React.FC = () => {
                 {activeAgents.size === displayedAgents.length ? 'Deselect All' : 'Select All'}
             </button>
         </div>
+
+        <div className="relative mb-4">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none">
+                <SearchIcon />
+            </div>
+            <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by name or specialty..."
+                className="w-full bg-primary text-text-primary placeholder-text-secondary rounded-lg p-2 pl-10 border border-accent focus:ring-2 focus:ring-brand focus:outline-none"
+            />
+            {searchTerm && (
+                <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-secondary hover:text-text-primary"
+                    aria-label="Clear search"
+                >
+                    <CloseIcon />
+                </button>
+            )}
+        </div>
         
         <div className="flex items-center gap-2 text-xs mb-4">
             <span className="text-text-secondary font-semibold">SORT BY:</span>
             <button
-                onClick={() => handleSortChange('name')}
+                onClick={() => setAgentSortOrder('name')}
                 className={`px-2 py-1 rounded transition-colors ${agentSortOrder === 'name' ? 'bg-brand text-white' : 'bg-accent text-text-secondary hover:bg-accent/70'}`}
             >
                 Name
             </button>
             <button
-                onClick={() => handleSortChange('specialty')}
+                onClick={() => setAgentSortOrder('specialty')}
                 className={`px-2 py-1 rounded transition-colors ${agentSortOrder === 'specialty' ? 'bg-brand text-white' : 'bg-accent text-text-secondary hover:bg-accent/70'}`}
             >
                 Specialty
             </button>
-             {agentSortOrder === 'custom' ? (
+             <button
+                onClick={loadSavedCustomOrder}
+                className={`px-2 py-1 rounded transition-colors ${agentSortOrder === 'custom' ? 'bg-brand text-white' : 'bg-accent text-text-secondary hover:bg-accent/70'}`}
+            >
+                Custom
+            </button>
+            <div className="flex-grow"></div>
+             {agentSortOrder === 'custom' && (
                 <button
                     onClick={handleSaveClick}
                     disabled={!isOrderDirty || saveStatus !== 'idle'}
-                    className={`px-2 py-1 rounded transition-colors w-24 text-center
-                        ${!isOrderDirty ? 'bg-brand text-white' : 'bg-green-600 text-white hover:bg-green-500'}
-                        ${saveStatus !== 'idle' ? 'bg-green-500' : ''}
-                        disabled:opacity-50 disabled:cursor-not-allowed`}
+                    className="px-2 py-1 rounded transition-colors w-24 text-center bg-green-600 text-white hover:bg-green-500 disabled:bg-accent disabled:text-text-secondary disabled:cursor-not-allowed"
                 >
                     {saveStatus === 'saved' ? 'Saved ✓' : (saveStatus === 'saving' ? 'Saving...' : 'Save Order')}
-                </button>
-            ) : (
-                <button
-                    disabled
-                    className="px-2 py-1 rounded transition-colors bg-accent text-text-secondary opacity-50 cursor-not-allowed"
-                >
-                    Custom
                 </button>
             )}
         </div>
 
-        <div className="flex flex-col gap-2" onDragLeave={() => setDragOverIndex(null)}>
-            {displayedAgents.map((agent, index) => {
+        <div className="flex flex-col gap-2">
+            {filteredAgents.length === 0 && (
+                 <p className="text-sm text-text-secondary text-center italic mt-4">No agents match your search.</p>
+            )}
+            {filteredAgents.map((agent) => {
                 const isActive = activeAgents.has(agent.id);
-                const isDraggable = agent.id !== 'mythos_assistant' && agentSortOrder === 'custom';
-                const isBeingDragged = draggedIndex === index;
-                const isDragOver = dragOverIndex === index;
+                const isDraggable = agent.id !== 'mythos_assistant';
+                const isBeingDragged = draggedAgent?.id === agent.id;
 
                 return (
                     <div
                         key={agent.id}
+                        data-agent-id={agent.id}
                         draggable={isDraggable}
-                        onDragStart={isDraggable ? (e) => handleDragStart(e, index) : undefined}
-                        onDragEnter={isDraggable ? () => handleDragEnter(index) : undefined}
+                        onDragStart={isDraggable ? (e) => handleDragStart(e, agent) : undefined}
                         onDragOver={(e) => e.preventDefault()}
-                        onDrop={isDraggable ? () => handleDrop(index) : undefined}
+                        onDrop={isDraggable ? handleDrop : undefined}
                         onDragEnd={isDraggable ? handleDragEnd : undefined}
-                        className={`p-2 rounded-lg flex items-center gap-2 transition-all duration-150 relative
+                        className={`p-2 rounded-lg flex items-center gap-2 transition-all duration-150 relative border-2 border-transparent
                             ${isActive ? 'bg-accent' : ''}
-                            ${isBeingDragged ? 'opacity-40' : ''}
+                            ${isBeingDragged ? 'opacity-40 border-brand' : ''}
                         `}
                     >
-                        {isDragOver && <div className="absolute top-0 left-0 right-0 h-0.5 bg-brand-hover" />}
                         
                         {isDraggable ? (
                             <div className="text-text-secondary cursor-grab touch-none p-1" onMouseDown={(e) => e.stopPropagation()}>
                                 <GripVerticalIcon />
                             </div>
                         ) : (
-                            <div className="w-8"></div> // Placeholder for alignment
+                            <div className="w-8"></div>
                         )}
                         
                         <div 

@@ -20,6 +20,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+let dbReady = false;
 
 // --- DATABASE SETUP ---
 const pool = new Pool({
@@ -105,8 +106,7 @@ const initDb = async () => {
     client.release();
   } catch (err) {
     console.error('Database connection error or table creation failed:', err);
-    // Cast process to any to access exit method without node types.
-    (process as any).exit(1);
+    throw err; // Re-throw to be caught by startServer
   }
 };
 
@@ -121,6 +121,16 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Middleware to check DB status for API routes
+app.use('/api', (req: Request, res: Response, next: NextFunction) => {
+    if (req.path === '/health') {
+        return next(); // Always allow health check
+    }
+    if (!dbReady) {
+        return res.status(503).json({ error: 'Server is running, but the database is not connected. Please check server logs.' });
+    }
+    next();
+});
 
 // --- FILE STORAGE ---
 const storage = multer.diskStorage({
@@ -199,7 +209,7 @@ const formatChatMessages = (chatName: string, messages: ChatMessage[]): string =
 
 // Health Check Endpoint
 app.get('/api/health', (req: Request, res: Response) => {
-    res.status(200).json({ status: 'ok' });
+    res.status(200).json({ status: 'ok', db: dbReady });
 });
 
 // CHAT & TEXT STREAMING
@@ -732,134 +742,4 @@ app.delete('/api/rag-repositories/:name', async (req: Request, res: Response) =>
         await client.query('COMMIT');
         res.sendStatus(204);
     } catch (error) {
-        await client.query('ROLLBACK');
-        console.error('RAG Repository Delete Error:', error);
-        res.status(500).json({ error: 'Failed to delete RAG repository' });
-    } finally {
-        client.release();
-    }
-});
-
-
-// ALL OTHER ROUTES
-app.post('/api/detect-content-safety', upload.single('file'), async (req: Request, res: Response) => {
-    res.json({ category: 'SAFE', reason: 'Content passed implicit safety checks.' });
-});
-
-app.post('/api/analyze-audio-style', upload.single('file'), async (req: Request, res: Response) => {
-    const file = req.file;
-    if (!file) return res.status(400).json({ error: 'No file provided' });
-    try {
-        const audioPart = fileToGenerativePart(file);
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: { parts: [audioPart, { text: 'Describe the musical style of this audio clip in a few keywords, suitable for a music generation prompt. For example: "Acoustic pop, sentimental, female vocals, piano, strings".' }] }
-        });
-        fs.unlinkSync(file.path);
-        res.json({ style: response.text });
-    } catch (error) {
-        console.error('Audio Style Analysis Error:', error);
-        res.status(500).json({ error: 'Failed to analyze audio style' });
-    }
-});
-
-app.post('/api/generate-suno-lyrics', async (req: Request, res: Response) => {
-    const { topic, agentId } = req.body;
-    const agent = MUSIC_AGENTS.find(a => a.id === agentId);
-    if (!agent) return res.status(400).json({ error: 'Invalid agent ID' });
-
-    res.setHeader('Content-Type', 'text/plain');
-    res.setHeader('Transfer-Encoding', 'chunked');
-    try {
-        const systemInstruction = `You are ${agent.name}, an AI specializing in ${agent.specialty}. Write song lyrics about the given topic. Use structural tags like [Verse], [Chorus], [Bridge].`;
-        const responseStream = await ai.models.generateContentStream({
-            model: 'gemini-2.5-flash',
-            contents: `Topic: ${topic}`,
-            config: { systemInstruction },
-        });
-        for await (const chunk of responseStream) {
-            res.write(chunk.text);
-        }
-    } catch (error) {
-        console.error('Lyric Generation Error:', error);
-        res.status(500).write('STREAM_ERROR');
-    } finally {
-        res.end();
-    }
-});
-
-app.post('/api/convert-audio-to-midi', upload.single('file'), async (req: Request, res: Response) => {
-     const file = req.file;
-    if (!file) return res.status(400).json({ error: 'No file provided' });
-    try {
-        const audioPart = fileToGenerativePart(file);
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: { parts: [audioPart, { text: 'Analyze this audio and describe the sequence of musical notes and chords in a JSON format. The JSON should have a "notes" array, where each object has "pitch" (e.g., "C#4"), "duration" (in seconds), and "startTime" (in seconds).' }] }
-        });
         
-        const filename = `${req.body.projectName || 'midi-conversion'}-${Date.now()}.json`;
-        const filePath = path.join('uploads', filename);
-        fs.writeFileSync(filePath, response.text);
-        fs.unlinkSync(file.path);
-
-        res.json({ downloadUrl: `/uploads/${filename}` });
-    } catch (error) {
-        console.error('Audio to MIDI error:', error);
-        res.status(500).json({ error: 'Failed to convert audio' });
-    }
-});
-
-
-// --- STATIC FILE SERVING ---
-// This serves all the frontend files from the root directory of the project.
-// Replace incorrect use of `(global as any).__dirname` with `__dirname`.
-app.use(express.static(path.join(__dirname, '..')));
-app.use('/uploads', express.static('uploads'));
-app.use('/local_uploads', express.static('local_uploads'));
-
-
-// Fallback for client-side routing and 404 handling
-app.use('*', (req: Request, res: Response) => {
-    // Log all unhandled routes to help diagnose issues
-    console.error(`[404] Unhandled route: ${req.method} ${req.originalUrl}`);
-
-    // If it's a GET request for a page-like URL, serve the main app
-    if (req.method === 'GET' && !req.path.startsWith('/api/') && !path.extname(req.path)) {
-        console.log(`[Router] Serving index.html for client-side route: ${req.originalUrl}`);
-        // Replace incorrect use of `(global as any).__dirname` with `__dirname`.
-        return res.sendFile(path.join(__dirname, '..', 'index.html'));
-    }
-    
-    // For all other unhandled requests (e.g., POST to a bad URL), send a clear JSON 404
-    res.status(404).json({
-        error: `The requested endpoint was not found: ${req.method} ${req.originalUrl}`
-    });
-});
-
-(async () => {
-  try {
-    console.log('Initializing database...');
-    await initDb();
-    console.log('Database initialized successfully.');
-
-    // Add a verification step to ensure the pool is connected and tables exist.
-    console.log('Verifying database readiness...');
-    const client = await pool.connect();
-    try {
-        // Query a table that should exist after initDb()
-        await client.query('SELECT * FROM rag_repositories LIMIT 1');
-        console.log('Database verification successful.');
-    } finally {
-        // Always release the client
-        client.release();
-    }
-    
-    app.listen(PORT, () => {
-      console.log(`Server is running on http://localhost:${PORT}`);
-    });
-  } catch (err) {
-    console.error('Fatal: Failed to start server during initialization or verification:', err);
-    (process as any).exit(1);
-  }
-})();

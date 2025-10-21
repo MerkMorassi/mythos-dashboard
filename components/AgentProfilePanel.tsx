@@ -1,6 +1,8 @@
-import React, { useRef } from 'react';
+
+import React, { useRef, useState, useEffect } from 'react';
 import { useTools } from '../contexts/ToolContext';
 import { useAgents } from '../contexts/AgentsContext';
+import { useChat } from '../contexts/ChatContext';
 import ChevronLeftIcon from './icons/ChevronLeftIcon';
 import VoiceTrainIcon from './icons/VoiceTrainIcon';
 import DbIcon from './icons/DbIcon';
@@ -17,7 +19,25 @@ const AgentProfilePanel: React.FC = () => {
         handleUpdateProfileImage,
     } = useTools();
     const { handleOpenVoiceModal } = useAgents();
+    const { setInput } = useChat();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const bioRef = useRef<HTMLParagraphElement>(null);
+
+    const [isBioExpanded, setIsBioExpanded] = useState(false);
+    const [isBioLong, setIsBioLong] = useState(false);
+
+    useEffect(() => {
+        // Reset state when agent changes
+        setIsBioExpanded(false);
+        // Check for bio length after a short delay to allow rendering
+        setTimeout(() => {
+            if (bioRef.current) {
+                // Check if the content is taller than the container when clamped
+                setIsBioLong(bioRef.current.scrollHeight > bioRef.current.clientHeight);
+            }
+        }, 100);
+    }, [viewingAgentProfile]);
+
 
     if (!viewingAgentProfile) {
         return (
@@ -49,6 +69,11 @@ const AgentProfilePanel: React.FC = () => {
             }
             handleUpdateProfileImage(id, file);
         }
+    };
+
+    const handleCompetencyClick = (skill: string) => {
+        setInput(`Tell me more about your competency in: ${skill}`);
+        setRightPanelContent(null); // Close the panel to show the chat view
     };
 
     return (
@@ -97,7 +122,20 @@ const AgentProfilePanel: React.FC = () => {
                 {/* Bio */}
                 <div className="p-4 bg-primary rounded-lg">
                     <h3 className="font-bold text-text-secondary mb-2">BIOGRAPHY</h3>
-                    <p className="text-sm text-text-primary leading-relaxed">{bio}</p>
+                    <p
+                        ref={bioRef}
+                        className={`text-sm text-text-primary leading-relaxed transition-all duration-300 ${!isBioExpanded ? 'line-clamp-4' : ''}`}
+                    >
+                        {bio}
+                    </p>
+                    {isBioLong && (
+                        <button 
+                            onClick={() => setIsBioExpanded(!isBioExpanded)} 
+                            className="text-sm text-brand-hover hover:text-text-primary font-semibold mt-2"
+                        >
+                            {isBioExpanded ? 'Show Less' : 'Show More'}
+                        </button>
+                    )}
                 </div>
 
                 {/* Core Competencies */}
@@ -105,9 +143,13 @@ const AgentProfilePanel: React.FC = () => {
                     <h3 className="font-bold text-text-secondary mb-2">CORE COMPETENCIES</h3>
                     <div className="flex flex-wrap gap-2">
                         {competencies.map((skill, index) => (
-                            <span key={index} className="bg-accent text-text-primary text-xs font-semibold px-2.5 py-1 rounded-full">
+                             <button 
+                                key={index} 
+                                onClick={() => handleCompetencyClick(skill)}
+                                className="bg-accent text-text-primary text-xs font-semibold px-2.5 py-1 rounded-full hover:bg-brand-hover transition-colors focus:outline-none focus:ring-2 focus:ring-brand"
+                            >
                                 {skill}
-                            </span>
+                            </button>
                         ))}
                     </div>
                 </div>

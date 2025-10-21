@@ -7,15 +7,16 @@ interface AgentsContextState {
   setActiveAgents: React.Dispatch<React.SetStateAction<Set<string>>>;
   agentSortOrder: 'name' | 'specialty' | 'custom';
   setAgentSortOrder: (order: 'name' | 'specialty' | 'custom') => void;
+  loadSavedCustomOrder: () => void;
   displayedAgents: readonly Agent[];
-  setDisplayedAgents: (agents: readonly Agent[]) => void;
+  setDisplayedAgents: React.Dispatch<React.SetStateAction<readonly Agent[]>>;
   isVoiceModalOpen: boolean;
   selectedAgentForVoice: Agent | null;
   handleAgentToggle: (agentId: string) => void;
   handleToggleAll: () => void;
   handleOpenVoiceModal: (agent: Agent) => void;
   handleCloseVoiceModal: () => void;
-  saveAgentOrder: () => void;
+  saveAgentOrder: (agentsToSave: readonly Agent[]) => void;
   isOrderDirty: boolean;
   setIsOrderDirty: (isDirty: boolean) => void;
   // This is a placeholder, implementation is in ToolContext
@@ -54,7 +55,7 @@ export const AgentsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   useEffect(() => {
     if (agentSortOrder === 'custom') {
-      return; // In custom mode, manual reordering takes precedence
+      return; // In custom mode, manual reordering or explicit loading takes precedence
     }
     const defaultAgent = ALL_AGENTS.find(a => a.id === 'mythos_assistant');
     const sortableAgents = [...ALL_AGENTS].filter(a => a.id !== 'mythos_assistant');
@@ -70,6 +71,23 @@ export const AgentsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setDisplayedAgents(defaultAgent ? [defaultAgent, ...sortableAgents] : sortableAgents);
     setIsOrderDirty(false); // Reset dirty flag for programmatic sorts
   }, [agentSortOrder]);
+  
+  const loadSavedCustomOrder = useCallback(() => {
+    try {
+        const savedOrderJson = localStorage.getItem('mythos-agent-order');
+        if (savedOrderJson) {
+            const agentIds = JSON.parse(savedOrderJson) as string[];
+            const agentMap = new Map(ALL_AGENTS.map(agent => [agent.id, agent]));
+            const orderedAgents = agentIds.map(id => agentMap.get(id)).filter(Boolean) as Agent[];
+            const remainingAgents = ALL_AGENTS.filter(a => !agentIds.includes(a.id));
+            setDisplayedAgents([...orderedAgents, ...remainingAgents]);
+        }
+    } catch (e) {
+        console.warn("Could not load custom agent order from localStorage.", e);
+    }
+    setAgentSortOrder('custom');
+    setIsOrderDirty(false);
+  }, []);
 
   const handleAgentToggle = (agentId: string) => {
     setActiveAgents(prev => {
@@ -103,11 +121,10 @@ export const AgentsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setSelectedAgentForVoice(null);
   };
 
-  const saveAgentOrder = () => {
+  const saveAgentOrder = (agentsToSave: readonly Agent[]) => {
       try {
-          const agentIds = displayedAgents.map(a => a.id);
+          const agentIds = agentsToSave.map(a => a.id);
           localStorage.setItem('mythos-agent-order', JSON.stringify(agentIds));
-          setIsOrderDirty(false);
       } catch (e) {
           console.error("Could not save agent order to localStorage:", e);
       }
@@ -124,8 +141,9 @@ export const AgentsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setActiveAgents,
     agentSortOrder,
     setAgentSortOrder,
+    loadSavedCustomOrder,
     displayedAgents,
-    setDisplayedAgents: (agents: readonly Agent[]) => setDisplayedAgents(agents),
+    setDisplayedAgents,
     isVoiceModalOpen,
     selectedAgentForVoice,
     handleAgentToggle,

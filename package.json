@@ -1,8 +1,10 @@
 {
   "name": "mythos-dashboard-fullstack",
   "version": "1.0.0",
-  "description": "A full-stack multi-tool AI application.",
+  "description": "A full-stack, multi-tool AI assistant designed for creative and analytical tasks using the Google Gemini API.",
   "main": "dist/server.js",
+  "author": "Mythos",
+  "license": "ISC",
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
