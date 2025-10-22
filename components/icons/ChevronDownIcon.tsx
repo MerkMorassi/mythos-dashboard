@@ -1,11 +1,11 @@
 
 import React from 'react';
 
-const TtsIcon: React.FC = () => (
+const ChevronDownIcon: React.FC = () => (
     <svg 
         xmlns="http://www.w3.org/2000/svg" 
-        width="24" 
-        height="24" 
+        width="16" 
+        height="16" 
         viewBox="0 0 24 24" 
         fill="none" 
         stroke="currentColor" 
@@ -13,9 +13,8 @@ const TtsIcon: React.FC = () => (
         strokeLinecap="round" 
         strokeLinejoin="round"
     >
-        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+        <polyline points="6 9 12 15 18 9"></polyline>
     </svg>
 );
 
-export default TtsIcon;
+export default ChevronDownIcon;

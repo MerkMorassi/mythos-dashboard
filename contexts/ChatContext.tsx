@@ -40,6 +40,7 @@ interface ChatContextState {
   // Chat History state and functions
   savedChats: SavedChat[];
   currentChatId: string | null;
+  isSavingChat: boolean;
   startNewChat: () => void;
   saveCurrentChat: (name: string) => void;
   loadChat: (chatId: string) => void;
@@ -72,6 +73,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [savedChats, setSavedChats] = useState<SavedChat[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [isSavingChat, setIsSavingChat] = useState(false);
   const [isSaveToRagModalOpen, setIsSaveToRagModalOpen] = useState(false);
   const [chatToSaveToRag, setChatToSaveToRag] = useState<SavedChat | null>(null);
 
@@ -296,7 +298,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         } else {
             const responseMessageId = window.crypto.randomUUID();
-            setMessages((prev) => [...prev, { id: responseMessageId, role: 'model', content: '...' }]);
+            setMessages((prev) => [...prev, { id: responseMessageId, role: MessageRole.MODEL, content: '...' }]);
             
             let model = 'gemini-2.5-flash';
             let parts: Part[] = [{ text: userPrompt }];
@@ -653,35 +655,91 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCurrentChatId(null);
     }, [messages]);
 
-    const saveCurrentChat = useCallback((name: string) => {
-        const chatName = name.trim() || `Chat from ${new Date().toLocaleString()}`;
-        let newSavedChats: SavedChat[];
-        let newChatId = currentChatId;
-
-        if (currentChatId) {
-            // Update existing chat
-            newSavedChats = savedChats.map(chat =>
-                chat.id === currentChatId
-                    ? { ...chat, name: chatName, messages, timestamp: Date.now() }
-                    : chat
-            );
-        } else {
-            // Save new chat
-            newChatId = window.crypto.randomUUID();
-            const newChat: SavedChat = {
-                id: newChatId,
-                name: chatName,
-                timestamp: Date.now(),
-                messages,
-            };
-            newSavedChats = [...savedChats, newChat];
+    const analyzeChatForMetadata = async (chatMessages: Message[]): Promise<{ summary: string; tags: string[] }> => {
+        if (!apiKey) {
+            addMessage({ role: MessageRole.MODEL, content: "Cannot analyze chat because API key is not set. Saving without summary.", isError: true });
+            return { summary: '', tags: [] };
         }
-        
-        newSavedChats.sort((a, b) => b.timestamp - a.timestamp);
-        localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(newSavedChats));
-        setSavedChats(newSavedChats);
-        if(newChatId) setCurrentChatId(newChatId);
-    }, [currentChatId, messages, savedChats]);
+        try {
+            const transcript = chatMessages
+                .filter(msg => !msg.isError && msg.id !== 'init' && msg.content && msg.content !== '...')
+                .map(msg => `${msg.agent?.name || msg.operator?.name || msg.role}: ${msg.content}`)
+                .join('\n');
+
+            if (!transcript) return { summary: 'Chat is empty.', tags: [] };
+            
+            const prompt = `Analyze the following chat transcript. Provide a concise, one-sentence summary. Then, on a new line, list up to 5 relevant comma-separated keywords (tags).
+            
+            FORMAT:
+            Summary: [Your one-sentence summary]
+            Tags: [tag1, tag2, tag3, tag4, tag5]
+
+            TRANSCRIPT:
+            ---
+            ${transcript}
+            ---
+            `;
+            
+            const ai = new GoogleGenAI({ apiKey });
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+            });
+            const text = response.text;
+            
+            const summaryMatch = text.match(/Summary: (.*)/);
+            const tagsMatch = text.match(/Tags: (.*)/);
+            
+            const summary = summaryMatch ? summaryMatch[1].trim() : 'Could not generate summary.';
+            const tags = tagsMatch ? tagsMatch[1].split(',').map(t => t.trim()).filter(Boolean) : [];
+            
+            return { summary, tags };
+        } catch (error) {
+            console.error("Chat analysis failed:", error);
+            addMessage({ role: MessageRole.MODEL, content: `Chat analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}. Saving without summary.`, isError: true });
+            return { summary: '', tags: [] };
+        }
+    };
+
+    const saveCurrentChat = useCallback(async (name: string) => {
+        setIsSavingChat(true);
+        try {
+            const { summary, tags } = await analyzeChatForMetadata(messages);
+            const chatName = name.trim() || summary || `Chat from ${new Date().toLocaleString()}`;
+            const agentIds = Array.from(activeAgents);
+            let newSavedChats: SavedChat[];
+            let newChatId = currentChatId;
+
+            if (currentChatId) {
+                // Update existing chat
+                newSavedChats = savedChats.map(chat =>
+                    chat.id === currentChatId
+                        ? { ...chat, name: chatName, messages, timestamp: Date.now(), summary, tags, agentIds }
+                        : chat
+                );
+            } else {
+                // Save new chat
+                newChatId = window.crypto.randomUUID();
+                const newChat: SavedChat = {
+                    id: newChatId,
+                    name: chatName,
+                    timestamp: Date.now(),
+                    messages,
+                    summary,
+                    tags,
+                    agentIds,
+                };
+                newSavedChats = [...savedChats, newChat];
+            }
+            
+            newSavedChats.sort((a, b) => b.timestamp - a.timestamp);
+            localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(newSavedChats));
+            setSavedChats(newSavedChats);
+            if(newChatId) setCurrentChatId(newChatId);
+        } finally {
+            setIsSavingChat(false);
+        }
+    }, [currentChatId, messages, savedChats, apiKey, activeAgents]);
     
     const loadChat = useCallback((chatId: string) => {
         const chatToLoad = savedChats.find(c => c.id === chatId);
@@ -758,6 +816,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     videoGenerationError,
     savedChats,
     currentChatId,
+    isSavingChat,
     startNewChat,
     saveCurrentChat,
     loadChat,

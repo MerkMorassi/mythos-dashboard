@@ -1,8 +1,6 @@
-
-
-// FIX: Combined express imports to resolve type conflicts with Request, Response, and NextFunction, which were causing numerous errors throughout the file.
-// FIX: Aliased express types to resolve conflicts with global fetch API types (Request, Response)
-import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction as ExpressNextFunction } from 'express';
+// Use type-only imports for Express types to resolve conflicts with global Request/Response types.
+// FIX: Combined express imports to resolve type conflicts.
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import multer from 'multer';
 // Note: Multer's File type is available via the Express namespace after importing multer, so a direct import is not needed or possible.
@@ -11,7 +9,7 @@ import fs from 'fs';
 import dotenv from 'dotenv';
 import { Pool } from 'pg';
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold, GenerateContentResponse } from '@google/genai';
-import type { Agent, ChatMessage } from './types';
+import type { Agent, ChatMessage, SavedChat } from './types';
 import { ALL_AGENTS, MUSIC_AGENTS } from './types';
 
 // Declare Node.js globals to resolve TypeScript errors.
@@ -114,7 +112,7 @@ const initDb = async () => {
 
 // --- MIDDLEWARE ---
 // Add request logging middleware to see all incoming requests
-app.use((req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
     next();
 });
@@ -124,7 +122,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Middleware to check DB status for API routes
-app.use('/api', (req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => {
+app.use('/api', (req: Request, res: Response, next: NextFunction) => {
     if (req.path === '/health') {
         return next(); // Always allow health check
     }
@@ -169,7 +167,7 @@ const safetySettings = [
 ];
 
 // Use `any` for file type as Express.Multer.File namespace is not found.
-const fileToGenerativePart = (file: any) => {
+const fileToGenerativePart = (file: Express.Multer.File) => {
   return {
     inlineData: {
       data: fs.readFileSync(file.path).toString("base64"),
@@ -179,12 +177,18 @@ const fileToGenerativePart = (file: any) => {
 };
 
 // Helper function to format chat messages for RAG storage
-const formatChatMessages = (chatName: string, messages: ChatMessage[]): string => {
-    let content = `Chat Session: ${chatName}\n`;
-    content += `Saved at: ${new Date().toISOString()}\n`;
+const formatChatMessages = (chat: SavedChat): string => {
+    let content = `Chat Session: ${chat.name}\n`;
+    content += `Saved at: ${new Date(chat.timestamp).toISOString()}\n`;
+    if (chat.summary) {
+        content += `Summary: ${chat.summary}\n`;
+    }
+    if (chat.tags && chat.tags.length > 0) {
+        content += `Tags: ${chat.tags.join(', ')}\n`;
+    }
     content += '========================================\n\n';
 
-    messages.forEach(msg => {
+    chat.messages.forEach(msg => {
         if (msg.isError || (msg.role === 'model' && msg.content === '...')) return;
         
         const author = msg.agent?.name || msg.operator?.name || msg.role;
@@ -210,12 +214,12 @@ const formatChatMessages = (chatName: string, messages: ChatMessage[]): string =
 // --- API ROUTES ---
 
 // Health Check Endpoint
-app.get('/api/health', (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/health', (req: Request, res: Response) => {
     res.status(200).json({ status: 'ok', db: dbReady });
 });
 
 // CHAT & TEXT STREAMING
-app.post('/api/generate-stream', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/generate-stream', upload.single('file'), async (req: Request, res: Response) => {
     const tool: string = req.body.tool || 'AGENT_HUB';
     const prompt: string = req.body.prompt || '';
     const history: string = req.body.history || '[]';
@@ -281,7 +285,7 @@ app.post('/api/generate-stream', upload.single('file'), async (req: ExpressReque
 });
 
 // IMAGE GENERATION
-app.post('/api/generate-image', async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/generate-image', async (req: Request, res: Response) => {
     const prompt: string = req.body.prompt || '';
     const clientMessageId: string = req.body.clientMessageId || '';
 
@@ -304,7 +308,6 @@ app.post('/api/generate-image', async (req: ExpressRequest, res: ExpressResponse
         const image = firstImage.image;
         const filename = `${clientMessageId}-${Date.now()}.png`;
         const filePath = path.join('uploads', filename);
-        // Use declared Buffer global instead of casting to any.
         fs.writeFileSync(filePath, Buffer.from(image.imageBytes, 'base64'));
 
         const dbResult = await pool.query(
@@ -324,7 +327,7 @@ app.post('/api/generate-image', async (req: ExpressRequest, res: ExpressResponse
 });
 
 // VIDEO GENERATION
-app.post('/api/generate-video', upload.single('image'), async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/generate-video', upload.single('image'), async (req: Request, res: Response) => {
     const { prompt, clientMessageId, sourceImageFilename } = req.body;
     const imageFile = req.file;
 
@@ -369,7 +372,7 @@ app.post('/api/generate-video', upload.single('image'), async (req: ExpressReque
 });
 
 // CHECK VIDEO STATUS
-app.post('/api/check-video-status', async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/check-video-status', async (req: Request, res: Response) => {
     const { operation, prompt, sourceImageFilename, clientMessageId } = req.body;
     try {
         let updatedOperation = await ai.operations.getVideosOperation({ operation });
@@ -406,7 +409,7 @@ app.post('/api/check-video-status', async (req: ExpressRequest, res: ExpressResp
 });
 
 // IMAGE ANALYSIS
-app.post('/api/analyze-image', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/analyze-image', upload.single('file'), async (req: Request, res: Response) => {
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'No file uploaded.' });
 
@@ -431,7 +434,7 @@ app.post('/api/analyze-image', upload.single('file'), async (req: ExpressRequest
 });
 
 // SPEECH SYNTHESIS
-app.post('/api/synthesize-speech', async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/synthesize-speech', async (req: Request, res: Response) => {
     const { text, voiceId, ttsModelId } = req.body;
 
     if (!text || !voiceId || !ttsModelId) {
@@ -439,8 +442,7 @@ app.post('/api/synthesize-speech', async (req: ExpressRequest, res: ExpressRespo
     }
 
     try {
-        // Use `any` for audioBuffer type as Buffer is not found.
-        let audioBuffer: any;
+        let audioBuffer: Buffer;
 
         if (ttsModelId === 'eleven-labs') {
             if (!ELEVENLABS_API_KEY) {
@@ -466,7 +468,6 @@ app.post('/api/synthesize-speech', async (req: ExpressRequest, res: ExpressRespo
                 throw new Error(`ElevenLabs API failed with status ${response.status}`);
             }
             const arrayBuffer = await response.arrayBuffer();
-            // Use declared Buffer global instead of casting to any.
             audioBuffer = Buffer.from(arrayBuffer);
 
         } else if (ttsModelId === 'text-to-speech' || ttsModelId === 'gemini-2.5-flash-preview-tts') {
@@ -488,7 +489,7 @@ app.post('/api/synthesize-speech', async (req: ExpressRequest, res: ExpressRespo
 
 
 // GALLERY & FEEDBACK
-app.get('/api/gallery', async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/gallery', async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT * FROM images ORDER BY created_at DESC');
         res.json(result.rows);
@@ -498,7 +499,7 @@ app.get('/api/gallery', async (req: ExpressRequest, res: ExpressResponse) => {
     }
 });
 
-app.post('/api/feedback', async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/feedback', async (req: Request, res: Response) => {
     const clientMessageId: string = req.body.clientMessageId || '';
     const feedback: string = req.body.feedback || '';
     
@@ -516,7 +517,7 @@ app.post('/api/feedback', async (req: ExpressRequest, res: ExpressResponse) => {
 });
 
 // --- LOCAL IMAGE VIEWER ROUTES ---
-app.get('/api/local-images', async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/local-images', async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT * FROM local_images ORDER BY created_at DESC');
         res.json(result.rows);
@@ -526,9 +527,8 @@ app.get('/api/local-images', async (req: ExpressRequest, res: ExpressResponse) =
     }
 });
 
-app.post('/api/local-images/upload', upload.array('images'), async (req: ExpressRequest, res: ExpressResponse) => {
-    // Cast req.files to any[] as Express.Multer.File is not found.
-    const files = req.files as any[];
+app.post('/api/local-images/upload', upload.array('images'), async (req: Request, res: Response) => {
+    const files = req.files as Express.Multer.File[];
     if (!files || files.length === 0) {
         return res.status(400).json({ error: 'No files uploaded.' });
     }
@@ -552,7 +552,7 @@ app.post('/api/local-images/upload', upload.array('images'), async (req: Express
     }
 });
 
-app.delete('/api/local-images/:id', async (req: ExpressRequest, res: ExpressResponse) => {
+app.delete('/api/local-images/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const client = await pool.connect();
     try {
@@ -580,7 +580,7 @@ app.delete('/api/local-images/:id', async (req: ExpressRequest, res: ExpressResp
     }
 });
 
-app.post('/api/local-images/:id/analyze', async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/local-images/:id/analyze', async (req: Request, res: Response) => {
     const { id } = req.params;
     try {
         const result = await pool.query('SELECT filename FROM local_images WHERE id = $1', [id]);
@@ -619,7 +619,7 @@ app.post('/api/local-images/:id/analyze', async (req: ExpressRequest, res: Expre
 });
 
 // --- RAG DOCUMENT ROUTES ---
-app.get('/api/rag-documents/:repository', async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/rag-documents/:repository', async (req: Request, res: Response) => {
     const { repository } = req.params;
     try {
         const result = await pool.query('SELECT id, filename, original_filename, repository, created_at FROM rag_documents WHERE repository = $1 ORDER BY created_at DESC', [repository]);
@@ -630,14 +630,14 @@ app.get('/api/rag-documents/:repository', async (req: ExpressRequest, res: Expre
     }
 });
 
-app.post('/api/rag-documents/save-chat', async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/rag-documents/save-chat', async (req: Request, res: Response) => {
     const { chat, repository } = req.body;
     if (!chat || !chat.messages || !repository) {
         return res.status(400).json({ error: 'Chat data and repository are required.' });
     }
 
     try {
-        const chatContent = formatChatMessages(chat.name, chat.messages);
+        const chatContent = formatChatMessages(chat);
         const originalFilename = `chat_${chat.name.replace(/\s/g, '_')}_${Date.now()}.txt`;
         const filename = `${Date.now()}-${originalFilename}`;
         const filePath = path.join('uploads', filename);
@@ -657,7 +657,7 @@ app.post('/api/rag-documents/save-chat', async (req: ExpressRequest, res: Expres
 });
 
 
-app.post('/api/rag-documents/:repository/upload', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/rag-documents/:repository/upload', upload.single('file'), async (req: Request, res: Response) => {
     const { repository } = req.params;
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'No file uploaded.' });
@@ -676,7 +676,7 @@ app.post('/api/rag-documents/:repository/upload', upload.single('file'), async (
     }
 });
 
-app.delete('/api/rag-documents/:id', async (req: ExpressRequest, res: ExpressResponse) => {
+app.delete('/api/rag-documents/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const client = await pool.connect();
     try {
@@ -701,7 +701,7 @@ app.delete('/api/rag-documents/:id', async (req: ExpressRequest, res: ExpressRes
 
 
 // --- RAG REPOSITORY ROUTES ---
-app.get('/api/rag-repositories', async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/rag-repositories', async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT * FROM rag_repositories ORDER BY created_at DESC');
         res.json(result.rows);
@@ -711,7 +711,7 @@ app.get('/api/rag-repositories', async (req: ExpressRequest, res: ExpressRespons
     }
 });
 
-app.post('/api/rag-repositories', async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/rag-repositories', async (req: Request, res: Response) => {
     const { name, agentId } = req.body;
     if (!name) {
         return res.status(400).json({ error: 'Repository name is required.' });
@@ -732,7 +732,7 @@ app.post('/api/rag-repositories', async (req: ExpressRequest, res: ExpressRespon
     }
 });
 
-app.delete('/api/rag-repositories/:name', async (req: ExpressRequest, res: ExpressResponse) => {
+app.delete('/api/rag-repositories/:name', async (req: Request, res: Response) => {
     const { name } = req.params;
     const client = await pool.connect();
     try {
@@ -753,7 +753,7 @@ app.delete('/api/rag-repositories/:name', async (req: ExpressRequest, res: Expre
 });
 
 // --- SUNO SERVICES ---
-app.post('/api/analyze-audio-style', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/analyze-audio-style', upload.single('file'), async (req: Request, res: Response) => {
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'No file uploaded.' });
 
@@ -774,7 +774,7 @@ app.post('/api/analyze-audio-style', upload.single('file'), async (req: ExpressR
     }
 });
 
-app.post('/api/generate-suno-lyrics', async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/generate-suno-lyrics', async (req: Request, res: Response) => {
     const { topic, agentId } = req.body;
     if (!topic || !agentId) {
         return res.status(400).json({ error: 'Topic and agentId are required.' });
@@ -809,7 +809,7 @@ app.post('/api/generate-suno-lyrics', async (req: ExpressRequest, res: ExpressRe
 });
 
 // --- AUDIO TO MIDI SERVICE ---
-app.post('/api/convert-audio-to-midi', upload.single('file'), async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/convert-audio-to-midi', upload.single('file'), async (req: Request, res: Response) => {
     const { projectName } = req.body;
     const file = req.file;
     if (!file || !projectName) {
@@ -853,7 +853,7 @@ app.use('/local_uploads', express.static('local_uploads'));
 // Serve static files from the 'public' directory
 app.use(express.static('public'));
 
-app.get('*', (req: ExpressRequest, res: ExpressResponse) => {
+app.get('*', (req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 

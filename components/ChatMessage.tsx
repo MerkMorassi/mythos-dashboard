@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import type { ChatMessage as Message } from '../types';
 import { MessageRole } from '../types';

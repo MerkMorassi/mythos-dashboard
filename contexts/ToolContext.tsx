@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import type { Tool, VoiceOption, TtsModelOption, GalleryImage, Operator, TrainingSample, Agent, RagRepository } from '../types';
 import { ALL_AGENTS, ELEVENLABS_VOICES, HITL_OPERATORS, PREVIEW_VOICES, STABLE_VOICES, TTS_MODELS, MessageRole } from '../types';
 import { addClonedVoice, getAllTrainingSamples, getClonedVoices, initDB, addProfileImage, getAllProfileImages } from '../services/dbService';
-// FIX: Import `analyzeAudioForSunoStyle` to resolve reference error.
 import { createRagRepository, deleteRagRepository, fetchGallery, fetchRagRepositories, generateSunoLyrics, analyzeAudioForSunoStyle } from '../services/geminiService';
 
 interface ToolContextState {
@@ -256,6 +255,8 @@ export const ToolProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setRightPanelContent(rightPanelContent === 'SETTINGS' ? null : 'SETTINGS');
     } else if (tool === 'FLOW') {
         window.open('https://labs.google/fx/tools/flow', '_blank', 'noopener,noreferrer');
+    } else if (tool === 'VISUALI_IO') {
+        window.open('https://visuali.io/', '_blank', 'noopener,noreferrer');
     } else {
         setActiveTool(tool);
     }
@@ -363,8 +364,7 @@ export const ToolProvider: React.FC<{ children: React.ReactNode }> = ({ children
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            // FIX: The result of `decoder.decode` is inferred as `unknown`, causing a type error.
-            // Using `String()` to cast to a string resolves the issue.
+            // FIX: The result of decoder.decode is not guaranteed to be a string. Explicitly cast it.
             const chunk = String(decoder.decode(value, { stream: true }));
             setSunoFormData(prev => ({...prev, lyrics: prev.lyrics + chunk}));
         }

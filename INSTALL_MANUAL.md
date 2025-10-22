@@ -6,7 +6,8 @@ This guide provides detailed, step-by-step instructions for setting up, running,
 1.  [Prerequisites](#1-prerequisites)
 2.  [Local Development Setup](#2-local-development-setup)
 3.  [Running the Application Locally](#3-running-the-application-locally)
-4.  [Deployment Guide (Render)](#4-deployment-guide-render)
+4.  [Troubleshooting](#4-troubleshooting)
+5.  [Deployment Guide (Render)](#5-deployment-guide-render)
 
 ---
 
@@ -16,7 +17,7 @@ Before you begin, ensure you have the following software installed on your machi
 
 ### Node.js and npm
 
--   **Node.js:** Version 18.x or higher is required.
+-   **Node.js:** Version 18.x or higher is required. (v20+ recommended)
 -   **npm:** Comes bundled with Node.js.
 
 To check if you have them installed, open your terminal and run:
@@ -34,7 +35,8 @@ If you don't have them, download and install Node.js from [nodejs.org](https://n
 Choose one of the two recommended ways to set up your database:
 
 #### Option A: Docker (Recommended)
-If you have Docker installed, this is the easiest way to get a compatible database running.
+If you have Docker installed, this is the easiest way to get a compatible database running. Make sure the Docker daemon is running before executing the command.
+
 ```bash
 docker run -d \
   --name mythos-db \
@@ -46,6 +48,8 @@ docker run -d \
   ankane/pgvector
 ```
 Replace `your_secret_password` with a strong password. This command creates a persistent database that will save your data even if you stop the container. The `pgvector` extension is automatically enabled. You can skip to [Step 2.4](#step-24-configure-environment-variables).
+
+> **Tip:** If you need to stop or remove the container later, you can use `docker stop mythos-db` and `docker rm mythos-db`.
 
 #### Option B: Manual Installation
 1.  **Install PostgreSQL:** Download the installer from the [official PostgreSQL website](https://www.postgresql.org/download/). During installation, you will set a password for the default `postgres` user. Remember this password.
@@ -78,7 +82,7 @@ npm install
 
 If you used Docker in the prerequisite step, you can skip to Step 2.4.
 
-1.  **Connect to PostgreSQL:** Open your terminal and connect to the default PostgreSQL instance using the `psql` command-line tool. You will be prompted for the password you set during installation.
+1.  **Connect to PostgreSQL:** Open your terminal and connect to the default PostgreSQL instance using the `psql` command-line tool. You may need to add PostgreSQL's `bin` directory to your system's PATH. You will be prompted for the password you set during installation.
     ```bash
     psql -U postgres
     ```
@@ -118,7 +122,8 @@ The application uses a `.env` file to manage secret keys and configuration.
     ```
 2.  Open the new `.env` file in your editor.
 3.  Fill in the required values:
-    -   `API_KEY`: Your Google Gemini API key from Google AI Studio.
+    -   `API_KEY`: Your **Google Gemini API key** from Google AI Studio.
+    -   `ELEVENLABS_API_KEY`: (Optional) Your **ElevenLabs API key**. This is required to use the ElevenLabs TTS voice options.
     -   `PG_USER`, `PG_HOST`, `PG_DATABASE`, `PG_PASSWORD`, `PG_PORT`: Your database connection details from the previous steps. If you used the Docker command, these will be `mythos_user`, `localhost`, `mythos_dashboard`, `your_secret_password`, and `5432` respectively.
 
 ---
@@ -143,15 +148,29 @@ After starting the server, open your web browser and navigate to `http://localho
 
 ---
 
-## 4. Deployment Guide (Render)
+## 4. Troubleshooting
+
+-   **Error: `address already in use :::3001`**
+    -   Another application is using port 3001. You can either stop that application or change the `PORT` variable in your `.env` file to a different number (e.g., `PORT=3002`).
+
+-   **Error: `Database connection error...`**
+    -   Double-check that your PostgreSQL server (or Docker container) is running.
+    -   Verify that all `PG_...` variables in your `.env` file are correct (host, port, user, password, database name).
+
+-   **Error: `extension "vector" does not exist`**
+    -   The `pgvector` extension was not enabled correctly. Connect to your database with `psql -U postgres -d mythos_dashboard` and run `CREATE EXTENSION vector;`.
+
+---
+
+## 5. Deployment Guide (Render)
 
 This guide explains how to deploy the application to a production environment. We recommend **Render** because its free tier can host the Node.js server and the PostgreSQL database with `pgvector`.
 
-### Step 4.1: Prepare Your Code
+### Step 5.1: Prepare Your Code
 
 Push your latest code, including the `.gitignore` file, to a GitHub repository.
 
-### Step 4.2: Deploy the Database on Render
+### Step 5.2: Deploy the Database on Render
 
 1.  Sign up or log in to [Render](https://render.com/).
 2.  From the dashboard, click **New + > PostgreSQL**.
@@ -160,7 +179,7 @@ Push your latest code, including the `.gitignore` file, to a GitHub repository.
 5.  Choose a region and click **Create Database**.
 6.  Once the database is running, go to its page and copy the **Internal Connection String**. You will need this for the backend server.
 
-### Step 4.3: Deploy the Backend Server on Render
+### Step 5.3: Deploy the Backend Server on Render
 
 1.  From the dashboard, click **New + > Web Service**.
 2.  Connect the GitHub repository containing your application.

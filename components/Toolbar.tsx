@@ -26,6 +26,7 @@ import MidiIcon from './icons/MidiIcon';
 import SettingsIcon from './icons/SettingsIcon';
 import HistoryIcon from './icons/HistoryIcon';
 import FlowIcon from './icons/FlowIcon';
+import SparklesIcon from './icons/SparklesIcon';
 import { useTools } from '../contexts/ToolContext';
 
 const ToolButton: React.FC<{
@@ -112,6 +113,7 @@ const Toolbar: React.FC = () => {
             <ToolButton label="Image" isActive={activeTool === 'IMAGE_GEN'} onClick={() => handleToolChange('IMAGE_GEN')} isCollapsed={isLeftSidebarCollapsed}><ImageIcon /></ToolButton>
             <ToolButton label="Edit Image" isActive={activeTool === 'IMAGE_EDIT'} onClick={() => handleToolChange('IMAGE_EDIT')} isCollapsed={isLeftSidebarCollapsed}><EditIcon /></ToolButton>
             <ToolButton label="Image Mixer" isActive={rightPanelContent === 'PERCHANCE'} onClick={() => handleToolChange('PERCHANCE_MIXER')} isCollapsed={isLeftSidebarCollapsed}><ImageMixerIcon /></ToolButton>
+            <ToolButton label="Visuali.io" isActive={false} onClick={() => handleToolChange('VISUALI_IO')} isCollapsed={isLeftSidebarCollapsed}><SparklesIcon /></ToolButton>
             <ToolButton label="Code" isActive={activeTool === 'CODE_GEN'} onClick={() => handleToolChange('CODE_GEN')} isCollapsed={isLeftSidebarCollapsed}><CodeIcon /></ToolButton>
             <ToolButton label="Video" isActive={activeTool === 'VIDEO_GEN'} onClick={() => handleToolChange('VIDEO_GEN')} isCollapsed={isLeftSidebarCollapsed}><VideoIcon /></ToolButton>
             <ToolButton label="Flow" isActive={activeTool === 'FLOW'} onClick={() => handleToolChange('FLOW')} isCollapsed={isLeftSidebarCollapsed}><FlowIcon /></ToolButton>

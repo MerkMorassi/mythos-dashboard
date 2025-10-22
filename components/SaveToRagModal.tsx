@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import type { SavedChat } from '../types';
 import { ALL_AGENTS } from '../types';
@@ -42,18 +43,15 @@ const SaveToRagModal: React.FC = () => {
             <div className="w-full max-w-md bg-secondary rounded-lg shadow-xl flex flex-col" onClick={(e) => e.stopPropagation()}>
                 <header className="p-4 border-b border-accent flex justify-between items-center">
                     <h2 className="text-lg font-bold text-text-primary">Save Chat to RAG</h2>
-                    <button onClick={closeSaveToRagModal} className="p-1 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent">
+                    <button onClick={closeSaveToRagModal} className="p-1 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent transition-colors" aria-label="Close modal">
                         <CloseIcon />
                     </button>
                 </header>
                 <div className="p-4 space-y-4">
-                    <p className="text-sm text-text-secondary">
-                        Save a copy of the chat <span className="font-bold text-text-primary">"{chatToSaveToRag.name}"</span> as a document in a RAG repository.
-                    </p>
+                    <p>Select a knowledge base repository to save this chat to.</p>
+                    <p className="text-sm bg-primary p-2 rounded-md"><strong>Chat:</strong> {chatToSaveToRag.name}</p>
                     <div>
-                        <label htmlFor="repo-select" className="block text-sm font-bold text-text-secondary mb-1">
-                            Select Repository
-                        </label>
+                        <label htmlFor="repo-select" className="block text-sm font-bold text-text-secondary mb-1">Repository</label>
                         <select
                             id="repo-select"
                             value={selectedRepo}
@@ -67,20 +65,15 @@ const SaveToRagModal: React.FC = () => {
                     </div>
                 </div>
                 <footer className="p-4 border-t border-accent flex justify-end gap-2">
-                    <button
-                        onClick={closeSaveToRagModal}
-                        className="py-2 px-4 bg-accent text-text-primary font-semibold rounded-lg hover:bg-brand-hover"
-                    >
+                    <button onClick={closeSaveToRagModal} className="py-2 px-4 bg-accent text-text-primary font-semibold rounded-lg hover:bg-accent/70 transition-colors">
                         Cancel
                     </button>
                     <button
                         onClick={handleSave}
                         disabled={isLoading}
-                        className="py-2 px-4 bg-brand text-white font-semibold rounded-lg hover:bg-brand-hover disabled:opacity-50 flex items-center justify-center"
+                        className="py-2 px-4 bg-brand text-white font-semibold rounded-lg hover:bg-brand-hover transition-colors disabled:opacity-50"
                     >
-                        {isLoading ? (
-                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        ) : 'Save to Repository'}
+                        {isLoading ? 'Saving...' : 'Save'}
                     </button>
                 </footer>
             </div>

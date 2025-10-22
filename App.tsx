@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
 import ChatMessage from './components/ChatMessage';
 import MessageInput from './components/MessageInput';
-import Header from './components/Header';
+import Navbar from './components/Header';
 import Toolbar from './components/Toolbar';
 import GalleryLightbox from './components/GalleryLightbox';
 import GalleryPanel from './components/GalleryPanel';
@@ -74,7 +73,7 @@ const AppContent: React.FC = () => {
           {serverStatus === 'failed' && 'Could not connect to the server. Please refresh the page to try again.'}
         </div>
       )}
-      <Header />
+      <Navbar />
       <div className="flex flex-1 overflow-hidden">
         {/* Left Sidebar */}
         <aside className={`bg-secondary flex flex-col transition-all duration-300 ease-in-out ${isLeftSidebarCollapsed ? 'w-20' : 'w-64'}`}>
