@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { ChatMessage as Message } from '../types';
 import { MessageRole } from '../types';
 import BotIcon from './icons/BotIcon';
@@ -72,47 +72,63 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isSpeaking }) => {
   const isImagePlaceholder = message.content === '...' && message.tags?.includes('image_generation_placeholder');
   const isPlaceholder = message.content === '...'; // Keep for general placeholders
   const hasFeedbackButtons = !isUser && hasContent && !isPlaceholder;
-  const agentAuthorName = message.agent ? message.agent.name : 'Assistant';
-  const userAuthorName = message.operator ? message.operator.name : 'User';
+  
   const showProgressBar = typeof message.uploadProgress === 'number' && message.uploadProgress < 100;
 
-  const renderAvatar = () => {
-    if (isUser && message.operator) {
-        const imageUrl = profileImageUrls.get(message.operator.id) || message.operator.profileImageUrl;
-        if (imageUrl) {
-            return <img src={imageUrl} alt={message.operator.name} className="w-full h-full object-cover" />;
-        }
-        return <UserIcon />;
+  const authorName = useMemo(() => {
+    if (isUser) {
+        if (message.agent) return message.agent.name;
+        if (message.operator) return message.operator.name;
+        return null; // No name for generic user
     }
-    if (!isUser && message.agent) {
+    // Model role
+    return message.agent?.name || 'Assistant';
+  }, [isUser, message.agent, message.operator]);
+
+  const renderAvatar = () => {
+    if (isUser) {
+      if (message.agent) {
         const imageUrl = profileImageUrls.get(message.agent.id) || message.agent.profileImageUrl;
         if (imageUrl) {
-            return <img src={imageUrl} alt={message.agent.name} className="w-full h-full object-cover" />;
+          return <img src={imageUrl} alt={message.agent.name} className="w-full h-full object-cover" />;
         }
-        if (message.agent.sigil) {
-             return <span className="text-xl">{message.agent.sigil}</span>;
+        return message.agent.sigil ? <span className="text-xl">{message.agent.sigil}</span> : <BotIcon />;
+      }
+      if (message.operator) {
+        const imageUrl = profileImageUrls.get(message.operator.id) || message.operator.profileImageUrl;
+        if (imageUrl) {
+          return <img src={imageUrl} alt={message.operator.name} className="w-full h-full object-cover" />;
         }
-        return <BotIcon />;
+        return <UserIcon />;
+      }
+      return <UserIcon />;
     }
-    // Fallbacks
-    return isUser ? <UserIcon /> : <BotIcon />;
+    
+    // Model role
+    if (message.agent) {
+      const imageUrl = profileImageUrls.get(message.agent.id) || message.agent.profileImageUrl;
+      if (imageUrl) {
+        return <img src={imageUrl} alt={message.agent.name} className="w-full h-full object-cover" />;
+      }
+      if (message.agent.sigil) {
+        return <span className="text-xl">{message.agent.sigil}</span>;
+      }
+    }
+    return <BotIcon />;
   };
 
 
   return (
     <div className={wrapperClasses}>
       {!isUser && (
-        <div className={iconWrapperClasses} title={agentAuthorName}>
+        <div className={iconWrapperClasses} title={authorName}>
            {renderAvatar()}
         </div>
       )}
       
       <div className={`flex flex-col gap-2 group w-full max-w-lg lg:max-w-xl ${isUser ? 'items-end' : 'items-start'}`}>
-        {isUser && message.operator && (
-            <div className="text-xs text-text-secondary font-bold">{userAuthorName}</div>
-        )}
-        {!isUser && (
-            <div className="text-xs text-text-secondary font-bold">{agentAuthorName}</div>
+        {authorName && (
+            <div className="text-xs text-text-secondary font-bold">{authorName}</div>
         )}
         <div className={`${messageClasses} w-full`}>
           {isImagePlaceholder ? (

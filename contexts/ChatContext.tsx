@@ -1,3 +1,5 @@
+
+
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import type { ChatMessage as Message, Tool, Agent, SavedChat } from '../types';
 import { MessageRole, ALL_AGENTS } from '../types';
@@ -293,7 +295,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         msg.id === responseMessageId ? { ...msg, content: responseText } : msg
                     ));
                 }
-                conversationHistory.push({ role: 'model', parts: [{ text: responseText }]});
+                conversationHistory.push({ role: MessageRole.MODEL, parts: [{ text: responseText }]});
             }
 
         } else {

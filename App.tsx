@@ -204,11 +204,11 @@ const AppContent: React.FC = () => {
 };
 
 export const App: React.FC = () => (
-  <ToolProvider>
-    <AgentsProvider>
+  <AgentsProvider>
+    <ToolProvider>
       <ChatProvider>
         <AppContent />
       </ChatProvider>
-    </AgentsProvider>
-  </ToolProvider>
+    </ToolProvider>
+  </AgentsProvider>
 );

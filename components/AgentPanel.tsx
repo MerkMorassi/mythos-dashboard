@@ -24,11 +24,19 @@ const AgentPanel: React.FC = () => {
     isOrderDirty,
     setIsOrderDirty,
   } = useAgents();
-  const { allTrainingSamples, handleOpenAgentProfile, setRightPanelContent } = useTools();
+  const { 
+    allTrainingSamples, 
+    handleOpenAgentProfile, 
+    setRightPanelContent,
+    activeOperator,
+    profileImageUrls
+  } = useTools();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [draggedAgent, setDraggedAgent] = useState<Agent | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  
+  const operatorImageUrl = profileImageUrls.get(activeOperator.id) || activeOperator.profileImageUrl;
 
   const handleSaveClick = () => {
       saveAgentOrder(displayedAgents);
@@ -104,7 +112,7 @@ const AgentPanel: React.FC = () => {
   return (
     <div className="w-full h-full bg-secondary flex flex-col">
       <div className="p-4 border-b border-accent flex justify-between items-center flex-shrink-0">
-        <h2 className="text-lg font-semibold text-text-primary">Agents</h2>
+        <h2 className="text-lg font-semibold text-text-primary">Operatives</h2>
         <button
           onClick={() => setRightPanelContent(null)}
           className="p-1 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent transition-colors"
@@ -116,13 +124,13 @@ const AgentPanel: React.FC = () => {
       <div className="flex-1 overflow-y-auto p-4">
         <div className="flex justify-between items-center mb-2">
             <div className="text-sm text-text-secondary">
-                Active: {activeAgents.size} / {displayedAgents.length}
+                Active: {activeAgents.size + 1} / {displayedAgents.length + 1}
             </div>
             <button
                 onClick={handleToggleAll}
                 className="text-sm text-brand-hover hover:text-text-primary font-semibold"
             >
-                {activeAgents.size === displayedAgents.length ? 'Deselect All' : 'Select All'}
+                {activeAgents.size === displayedAgents.length ? 'Deselect All LIAs' : 'Select All LIAs'}
             </button>
         </div>
 
@@ -134,7 +142,7 @@ const AgentPanel: React.FC = () => {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by name or specialty..."
+                placeholder="Search LIAs by name or specialty..."
                 className="w-full bg-primary text-text-primary placeholder-text-secondary rounded-lg p-2 pl-10 border border-accent focus:ring-2 focus:ring-brand focus:outline-none"
             />
             {searchTerm && (
@@ -149,7 +157,7 @@ const AgentPanel: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-2 text-xs mb-4">
-            <span className="text-text-secondary font-semibold">SORT BY:</span>
+            <span className="text-text-secondary font-semibold">SORT LIAs BY:</span>
             <button
                 onClick={() => setAgentSortOrder('name')}
                 className={`px-2 py-1 rounded transition-colors ${agentSortOrder === 'name' ? 'bg-brand text-white' : 'bg-accent text-text-secondary hover:bg-accent/70'}`}
@@ -181,13 +189,37 @@ const AgentPanel: React.FC = () => {
         </div>
 
         <div className="flex flex-col gap-2">
+            {/* HITL Operator Item */}
+            <div className="p-2 rounded-lg flex items-center gap-2 bg-accent/30">
+                <div className="w-8"></div> {/* Spacer for grip icon alignment */}
+                <div className="flex-1 flex items-center gap-4 group">
+                    <div className="w-10 h-10 rounded-md flex items-center justify-center text-xl flex-shrink-0 overflow-hidden bg-primary">
+                        <img src={operatorImageUrl} alt={activeOperator.name} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                        <div className="font-semibold text-text-primary flex items-center gap-2">
+                            <span className="truncate">{activeOperator.name}</span>
+                        </div>
+                        <div className="text-xs text-text-secondary flex items-center gap-2">
+                            <IdCardIcon /> <span className="truncate">{activeOperator.specialty} (HITL)</span>
+                        </div>
+                    </div>
+                </div>
+                <div className={`w-5 h-5 rounded-sm border-2 flex items-center justify-center flex-shrink-0 mr-1 bg-brand border-brand-hover`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
+            </div>
+
+            <hr className="border-accent my-1" />
+
             {filteredAgents.length === 0 && (
-                 <p className="text-sm text-text-secondary text-center italic mt-4">No agents match your search.</p>
+                 <p className="text-sm text-text-secondary text-center italic mt-4">No LIAs match your search.</p>
             )}
             {filteredAgents.map((agent) => {
                 const isActive = activeAgents.has(agent.id);
-                const isDraggable = agent.id !== 'mythos_assistant';
+                const isDraggable = agent.id !== 'pleroma';
                 const isBeingDragged = draggedAgent?.id === agent.id;
+                const imageUrl = profileImageUrls.get(agent.id) || agent.profileImageUrl;
 
                 return (
                     <div
@@ -216,12 +248,16 @@ const AgentPanel: React.FC = () => {
                             className="flex-1 flex items-center gap-4 cursor-pointer group"
                             onClick={() => handleOpenAgentProfile(agent)}
                         >
-                            <div className={`w-10 h-10 rounded-md flex items-center justify-center text-xl flex-shrink-0 ${isActive ? 'bg-brand text-white' : 'bg-primary'}`}>
-                                {agent.sigil}
+                            <div className={`w-10 h-10 rounded-md flex items-center justify-center text-xl flex-shrink-0 overflow-hidden ${isActive ? 'bg-brand text-white' : 'bg-primary'}`}>
+                                {imageUrl ? (
+                                    <img src={imageUrl} alt={agent.name} className="w-full h-full object-cover" />
+                                ) : (
+                                    agent.sigil
+                                )}
                             </div>
                             <div className="flex-1 overflow-hidden">
                                 <div className="font-semibold text-text-primary flex items-center gap-2">
-                                    <IdCardIcon /> <span className="truncate">{agent.name}</span> {getStatusIndicator(agent.id)}
+                                    <span className="truncate">{agent.name}</span> {getStatusIndicator(agent.id)}
                                 </div>
                                 <div className="text-xs text-text-secondary flex items-center gap-2">
                                     <SparklesIcon /> <span className="truncate">{agent.specialty}</span>

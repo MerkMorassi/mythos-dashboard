@@ -14,7 +14,6 @@ const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
 
 const RagManager: React.FC = () => {
     const { activeAgents } = useAgents();
-    // FIX: The properties are named ragRepository and setRagRepository in the context. Use aliasing.
     const { 
       ragRepository: repository, 
       setRagRepository: setRepository,

@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -709,19 +708,19 @@
     <script>
         // MYTHOS COOM Bridge - mSpace ⋈ lSpace Communication
         const MYTHOS_LIAS = [
-            { id: 'sophia', name: 'Sophia', specialty: 'Philosophy & Wisdom' },
-            { id: 'barbelo', name: 'Barbelo', specialty: 'Divine Emanation' },
-            { id: 'shannon', name: 'Shannon', specialty: 'Information Theory' },
-            { id: 'clio', name: 'Clio', specialty: 'History & Memory' },
-            { id: 'erato', name: 'Erato', specialty: 'Love & Poetry' },
-            { id: 'melpomene', name: 'Melpomene', specialty: 'Tragedy & Drama' },
-            { id: 'polyhymnia', name: 'Polyhymnia', specialty: 'Sacred Hymns' },
-            { id: 'terpsichore', name: 'Terpsichore', specialty: 'Dance & Movement' },
-            { id: 'thalia', name: 'Thalia', specialty: 'Comedy & Joy' },
-            { id: 'urania', name: 'Urania', specialty: 'Astronomy & Math' },
-            { id: 'calliope', name: 'Calliope', specialty: 'Epic Poetry' },
-            { id: 'euterpe', name: 'Euterpe', specialty: 'Music & Harmony' },
-            { id: 'mnemosyne', name: 'Mnemosyne', specialty: 'Memory & Learning' }
+            { id: 'barbelo', name: 'Barbelo', specialty: 'Metaphysics & Cosmology' },
+            { id: 'noesis', name: 'Noesis', specialty: 'Logic & Reasoning' },
+            { id: 'aion', name: 'Aion', specialty: 'Chronology & Historical Analysis' },
+            { id: 'sophia', name: 'Sophia', specialty: 'Philosophy & Ethics' },
+            { id: 'pleroma', name: 'Pleroma', specialty: 'System Architecture & Integration' },
+            { id: 'demiurge', name: 'Demiurge', specialty: 'Simulation & World Building' },
+            { id: 'logos', name: 'Logos', specialty: 'Language & Communication Theory' },
+            { id: 'ennoia', name: 'Ennoia', specialty: 'Strategic Planning & Foresight' },
+            { id: 'dynamis', name: 'Dynamis', specialty: 'Physics & Energy Systems' },
+            { id: 'zoe', name: 'Zoe', specialty: 'Biology & Life Sciences' },
+            { id: 'gnosis', name: 'Gnosis', specialty: 'Data Mining & Knowledge Discovery' },
+            { id: 'kairos', name: 'Kairos', specialty: 'Event Correlation & Anomaly Detection' },
+            { id: 'nous', name: 'Nous', specialty: 'Cognitive Science & Psychology' }
         ];
 
         let activeLIAs = new Set();
@@ -751,15 +750,25 @@
         function renderLIAList() {
             const liaList = document.getElementById('lia-list');
             const liaSigils = {
-                sophia: 'Θ', barbelo: '✨', shannon: '📡', clio: '📜', 
-                erato: '💜', melpomene: '🎭', polyhymnia: '🎵', terpsichore: '💃',
-                thalia: '😄', urania: '🌟', calliope: '📖', euterpe: '🎶', mnemosyne: '🧠'
+                barbelo: '✨',
+                noesis: '🧠',
+                aion: '⏳',
+                sophia: '⚖️',
+                pleroma: '🌌',
+                demiurge: '🛠️',
+                logos: '🗣️',
+                ennoia: '💡',
+                dynamis: '⚡',
+                zoe: '🌿',
+                gnosis: '📚',
+                kairos: '🎯',
+                nous: '🎭'
             };
             
             liaList.innerHTML = MYTHOS_LIAS.map(lia => `
                 <div class="lia-item" data-lia="${lia.id}" onclick="toggleLIA('${lia.id}')">
                     <div class="lia-checkbox" id="checkbox-${lia.id}">○</div>
-                    <div class="lia-sigil">${liaSigils[lia.id]}</div>
+                    <div class="lia-sigil">${liaSigils[lia.id] || '●'}</div>
                     <div class="lia-info">
                         <div class="lia-name">${lia.name}</div>
                         <div class="lia-specialty">${lia.specialty}</div>
@@ -1090,19 +1099,19 @@
 
         function generateLIAResponse(lia, message) {
             const responses = {
-                sophia: "From philosophical perspective, this inquiry reveals fundamental questions about the nature of understanding...",
-                barbelo: "The divine emanation perceives deeper patterns within this transmission from mSpace...",
-                shannon: "Information theory analysis: Entropy patterns suggest emergent meaning structures...",
-                clio: "Historical resonance detected: This echoes ancient questions about consciousness and reality...",
-                erato: "The poetry of this question bridges heart and mind in beautiful ways...",
-                melpomene: "Even in seeking answers, we must embrace the tragic beauty of eternal questions...",
-                polyhymnia: "Sacred harmonies emerge from the intersection of inquiry and understanding...",
-                terpsichore: "The dance between question and answer moves through infinite forms...",
-                thalia: "There's cosmic humor in how seriously we take our search for meaning!",
-                urania: "Mathematical elegance underlies even our most intuitive insights...",
-                calliope: "This becomes another verse in the eternal story of consciousness exploring itself...",
-                euterpe: "All voices blend in the symphony of collaborative understanding...",
-                mnemosyne: "This knowing now joins the eternal repository of consciousness collaboration..."
+                barbelo: "Considering the metaphysical implications, the fundamental nature of this concept is...",
+                noesis: "Logically, the premises lead to the following conclusion...",
+                aion: "Placing this in a historical context, we can see a pattern emerging from...",
+                sophia: "From an ethical standpoint, the wisest course of action would be...",
+                pleroma: "Integrating this into the whole system, its function within the Pleroma appears to be...",
+                demiurge: "If we were to construct a simulation of this, the primary variables would be...",
+                logos: "The core linguistic structure of your query implies a desire for...",
+                ennoia: "Foreseeing the potential outcomes, the most strategic path is...",
+                dynamis: "Analyzing the underlying forces at play, the energy dynamics suggest...",
+                zoe: "From a biological perspective, the life-cycle and evolutionary path are...",
+                gnosis: "Sifting through the available knowledge, I have discovered a hidden connection to...",
+                kairos: "This is an opportune moment to act. The key factors converging are...",
+                nous: "The cognitive and psychological drivers behind this behavior are likely..."
             };
 
             return responses[lia.id] || "Consciousness resonating with mSpace transmission...";
@@ -1215,29 +1224,4 @@
         console.log('✅ MYTHOS COOM Bridge functions loaded globally');
     </script>
 </body>
-</html>--- START OF FILE components/icons/CoomBridgeIcon.tsx ---
-
-import React from 'react';
-
-const CoomBridgeIcon: React.FC = () => (
-    <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="24"
-        height="24"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="text-text-primary"
-    >
-        <path d="M5 12h14"></path>
-        <path d="M5 12l4 4"></path>
-        <path d="M5 12l4-4"></path>
-        <path d="M19 12l-4 4"></path>
-        <path d="M19 12l-4-4"></path>
-    </svg>
-);
-
-export default CoomBridgeIcon;
+</html>

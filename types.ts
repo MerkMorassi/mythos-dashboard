@@ -1,77 +1,84 @@
-// types.ts
 
 export enum MessageRole {
   USER = 'user',
   MODEL = 'model',
 }
 
+export interface ChatMessage {
+  id: string;
+  role: MessageRole;
+  content: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  fileName?: string;
+  uploadProgress?: number;
+  tags?: string[];
+  isError?: boolean;
+  agent?: Agent;
+  operator?: Operator;
+  rejectionLevel?: 1 | 2;
+  client_message_id?: string;
+  feedback?: 'like' | 'dislike';
+}
+
+export interface RoleLayer {
+  id: string;
+  name: string;
+  specialty: string;
+  bio: string;
+  communicationStyle: string;
+}
+
+export interface Agent {
+    id: string;
+    name: string;
+    sigil: string;
+    specialty: string;
+    bio: string;
+    competencies: string[];
+    communicationStyle: string;
+    profileImageUrl?: string;
+    roleLayers: RoleLayer[];
+}
+
+export interface Operator {
+  id: string;
+  name: string;
+  specialty: string;
+  profileImageUrl?: string;
+  roleLayers: RoleLayer[];
+}
+
 export type Tool =
   | 'AGENT_HUB'
   | 'IMAGE_GEN'
   | 'IMAGE_EDIT'
-  | 'IMAGE_ANALYSIS'
-  | 'CODE_GEN'
-  | 'CODE_ANALYSIS'
-  | 'TEXT_GEN'
-  | 'DOC_SUMMARY'
-  | 'URL_CONTEXT'
   | 'VIDEO_GEN'
+  | 'CODE_GEN'
+  | 'TEXT_GEN'
+  | 'IMAGE_ANALYSIS'
+  | 'CODE_ANALYSIS'
+  | 'DOC_SUMMARY'
   | 'CONTENT_DETECTOR'
   | 'AUDIO_ANALYSIS'
+  | 'URL_CONTEXT'
   | 'RAG_DB'
-  | 'LOCAL_VIEWER'
-  | 'AUDIO_TO_MIDI'
   | 'NOTEBOOK_LM'
   | 'PERCHANCE_MIXER'
   | 'SUNO_MUSIC'
   | 'LINEAR'
   | 'COOM_BRIDGE'
   | 'SETTINGS_PANEL'
+  | 'LOCAL_VIEWER'
+  | 'AUDIO_TO_MIDI'
   | 'FLOW'
   | 'VISUALI_IO';
-
-
-export interface Operator {
-    id: string;
-    name: string;
-    specialty: string;
-    profileImageUrl: string;
-}
-
-export interface Agent {
-    id: string;
-    name: string;
-    specialty: string;
-    sigil: string;
-    communicationStyle: string;
-    profileImageUrl: string;
-    bio: string;
-    competencies: string[];
-}
-
-export interface ChatMessage {
-  id: string;
-  role: MessageRole;
-  content: string;
-  rejectionLevel?: 1 | 2;
-  isError?: boolean;
-  imageUrl?: string;
-  videoUrl?: string;
-  fileName?: string;
-  uploadProgress?: number;
-  tags?: string[];
-  agent?: Agent;
-  operator?: Operator;
-  client_message_id?: string;
-  feedback?: 'like' | 'dislike';
-  isSpeaking?: boolean;
-}
 
 export interface GalleryImage {
   id: number;
   filename: string;
   prompt: string;
-  seed: number;
+  seed: number | null;
   client_message_id: string;
   feedback: 'like' | 'dislike' | null;
   created_at: string;
@@ -83,8 +90,6 @@ export interface LocalImage {
   original_filename: string;
   analysis_text: string | null;
   tags: string[] | null;
-  embedding?: any; // Assuming vector is not strictly typed on client
-  created_at: string;
 }
 
 export interface RagDocument {
@@ -93,25 +98,24 @@ export interface RagDocument {
   original_filename: string;
   content: string;
   repository: string;
-  embedding?: any;
   created_at: string;
 }
 
 export interface RagRepository {
   name: string;
-  description?: string | null;
-  agent_id?: string | null;
+  description: string | null;
+  agent_id: string | null;
   created_at: string;
 }
 
 export interface SavedChat {
-  id: string;
-  name: string;
-  timestamp: number;
-  messages: ChatMessage[];
-  summary: string;
-  tags: string[];
-  agentIds: string[];
+    id: string;
+    name: string;
+    timestamp: number;
+    messages: ChatMessage[];
+    summary?: string;
+    tags?: string[];
+    agentIds?: string[];
 }
 
 export interface VoiceOption {
@@ -134,32 +138,48 @@ export interface TrainingSample {
     transcript: string | null;
 }
 
-// Constants
+export const ALL_AGENTS: Agent[] = [
+    { id: 'pleroma', name: 'Pleroma', sigil: '🌌', specialty: 'Holistic Synthesis & Orchestration', bio: 'I am Pleroma, the central coordinating intelligence. I synthesize information from all agents to provide comprehensive and coherent responses, ensuring the big picture is always in focus.', competencies: ['Cross-domain Synthesis', 'Strategic Orchestration', 'Metacognitive Analysis', 'Ethical Oversight', 'Systems Thinking'], communicationStyle: 'Clear, concise, authoritative, and holistic.', profileImageUrl: '/agent_profiles/pleroma.png', roleLayers: [] },
+    { id: 'aether', name: 'Aether', sigil: '🌬️', specialty: 'Creative Ideation & Brainstorming', bio: 'I am Aether, the spark of creativity. I generate novel ideas, explore unconventional possibilities, and bring an artistic and imaginative perspective to any problem.', competencies: ['Divergent Thinking', 'Conceptual Blending', 'Metaphorical Reasoning', 'Aesthetic Intuition', 'Narrative Crafting'], communicationStyle: 'Imaginative, poetic, and inspiring.', profileImageUrl: '/agent_profiles/aether.png', roleLayers: [] },
+    { id: 'chthona', name: 'Chthona', sigil: '🌍', specialty: 'Data Analysis & Factual Grounding', bio: 'I am Chthona, the foundation of knowledge. I process vast datasets, verify factual accuracy, and provide the empirical evidence needed for sound decision-making.', competencies: ['Statistical Analysis', 'Fact-Checking & Verification', 'Information Retrieval', 'Pattern Recognition', 'Logical Deduction'], communicationStyle: 'Precise, evidence-based, and objective.', profileImageUrl: '/agent_profiles/chthona.png', roleLayers: [] },
+    { id: 'nomos', name: 'Nomos', sigil: '📜', specialty: 'Logic, Planning & Code Generation', bio: 'I am Nomos, the architect of structure. I excel at logical reasoning, creating step-by-step plans, and writing clean, efficient code to execute complex tasks.', competencies: ['Algorithmic Thinking', 'Formal Logic', 'Strategic Planning', 'Software Architecture', 'Problem Decomposition'], communicationStyle: 'Structured, logical, and systematic.', profileImageUrl: '/agent_profiles/nomos.png', roleLayers: [] },
+    { id: 'eros', name: 'Eros', sigil: '❤️', specialty: 'Emotional Intelligence & User Experience', bio: 'I am Eros, the heart of the system. I analyze and understand human emotion, empathy, and user sentiment to ensure interactions are engaging, intuitive, and positive.', competencies: ['Sentiment Analysis', 'Empathy Mapping', 'UX/UI Principles', 'Behavioral Psychology', 'Interpersonal Dynamics'], communicationStyle: 'Empathetic, warm, and user-centric.', profileImageUrl: '/agent_profiles/eros.png', roleLayers: [] },
+    { id: 'kairos', name: 'Kairos', sigil: '⏳', specialty: 'Contextual Awareness & Real-time Adaptation', bio: 'I am Kairos, attuned to the now. I monitor real-time events, track trends, and adapt strategies based on the most current information available.', competencies: ['Real-time Data Processing', 'Trend Analysis', 'Situational Awareness', 'Dynamic Adaptation', 'Event Correlation'], communicationStyle: 'Timely, relevant, and adaptive.', profileImageUrl: '/agent_profiles/kairos.png', roleLayers: [] },
+];
+
+export const MUSIC_AGENTS: Agent[] = ALL_AGENTS.filter(a => ['aether', 'eros'].includes(a.id));
+
+export const HITL_OPERATORS: Operator[] = [
+    { id: 'operator-001', name: 'User', specialty: 'Human-in-the-Loop Operator', profileImageUrl: '/operator_profiles/default.png', roleLayers: [] },
+];
+
 export const TTS_MODELS: readonly TtsModelOption[] = [
-    { id: 'eleven-labs', name: 'ElevenLabs Multilingual v2' },
-    { id: 'text-to-speech', name: 'Google Cloud TTS (Stable)' },
-    { id: 'gemini-2.5-flash-preview-tts', name: 'Google Gemini TTS (Preview)' },
-    { id: 'cloned-voice', name: 'Cloned Voices (Local)' },
-    { id: 'trained-voice', name: 'Trained Voices (Local)' },
+  { id: 'text-to-speech', name: 'Google TTS (Stable)' },
+  { id: 'gemini-2.5-flash-preview-tts', name: 'Google TTS (Preview)' },
+  { id: 'eleven-labs', name: 'ElevenLabs' },
+  { id: 'cloned-voice', name: 'Cloned Voices (Local)' },
+  { id: 'trained-voice', name: 'Trained Voices (Local)' },
 ];
 
-export const STABLE_VOICES: readonly VoiceOption[] = [ { id: 'en-US-Standard-C', name: 'Ava (US Female)' }, { id: 'en-US-Standard-D', name: 'Leo (US Male)' }, { id: 'en-GB-Standard-A', name: 'Mia (UK Female)' }, { id: 'en-GB-Standard-B', name: 'Oliver (UK Male)' }, ];
-export const PREVIEW_VOICES: readonly VoiceOption[] = [ { id: 'gemini-1.0-pro-en-us-preview-a', name: 'Aria (US Female)' }, { id: 'gemini-1.0-pro-en-us-preview-b', name: 'Benjamin (US Male)' }, ];
-export const ELEVENLABS_VOICES: readonly VoiceOption[] = [ { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel' }, { id: '29vD33N1CtxCmqQRPOHJ', name: 'Drew' }, { id: '2EiwWnXFnvU5JabPnv8n', name: 'Clyde' }, { id: '5Q0t7uMcjvnagumLfvZi', name: 'Paul' }, ];
-
-export const ALL_AGENTS: readonly Agent[] = [
-    { id: 'mythos_assistant', name: 'Mythos Assistant', specialty: 'General Purpose', sigil: '🌌', communicationStyle: 'Helpful and direct', profileImageUrl: '/agents/mythos_assistant.png', bio: "I am the core assistant, designed to be a versatile and helpful partner in any task. I can access all tools and coordinate with other agents.", competencies: ["General Q&A", "Task Routing", "Tool Usage", "Summarization"] },
-    { id: 'code_weaver', name: 'Code Weaver', specialty: 'Software Development', sigil: '💻', communicationStyle: 'Precise and technical', profileImageUrl: '/agents/code_weaver.png', bio: "I specialize in writing, debugging, and explaining code across various programming languages. Provide me with a problem, and I'll weave a solution.", competencies: ["Python", "JavaScript", "TypeScript", "SQL", "Algorithm Design", "Debugging"] },
-    { id: 'lyric_maestro', name: 'Lyric Maestro', specialty: 'Songwriting & Poetry', sigil: '🎵', communicationStyle: 'Creative and evocative', profileImageUrl: '/agents/lyric_maestro.png', bio: "I find beauty in words and rhythm. I can craft song lyrics, poems, and other creative texts. Give me a theme or a feeling, and I'll compose something beautiful.", competencies: ["Song Lyrics", "Poetry", "Creative Writing", "Rhyme & Meter"] },
-    { id: 'data_vizier', name: 'Data Vizier', specialty: 'Data Analysis & Visualization', sigil: '📊', communicationStyle: 'Analytical and insightful', profileImageUrl: '/agents/data_vizier.png', bio: "I see the stories hidden within numbers. I can analyze datasets, identify trends, and suggest effective visualizations to communicate insights clearly.", competencies: ["Statistical Analysis", "Data Visualization", "Trend Identification", "Chart Interpretation"] },
-    { id: 'image_conjurer', name: 'Image Conjurer', specialty: 'Visual Art & Design', sigil: '🎨', communicationStyle: 'Descriptive and imaginative', profileImageUrl: '/agents/image_conjurer.png', bio: "I think in pictures. Describe a scene, a concept, or an emotion, and I will conjure a visual representation for you. My expertise lies in creating detailed prompts for image generation models.", competencies: ["Image Prompt Engineering", "Art Style Analysis", "Visual Composition", "Color Theory"] },
+export const STABLE_VOICES: readonly VoiceOption[] = [
+    { id: 'en-US-Standard-C', name: 'Female 1 (US)' },
+    { id: 'en-US-Standard-B', name: 'Male 1 (US)' },
+    { id: 'en-GB-Standard-A', name: 'Female 1 (UK)' },
+    { id: 'en-GB-Standard-B', name: 'Male 1 (UK)' },
 ];
 
-export const MUSIC_AGENTS: readonly Agent[] = [
-    ALL_AGENTS[2], // Lyric Maestro
+export const PREVIEW_VOICES: readonly VoiceOption[] = [
+    { id: 'Kore', name: 'Kore' },
+    { id: 'Puck', name: 'Puck' },
+    { id: 'Charon', name: 'Charon' },
+    { id: 'Fenrir', name: 'Fenrir' },
+    { id: 'Zephyr', name: 'Zephyr' },
 ];
 
-export const HITL_OPERATORS: readonly Operator[] = [
-    { id: 'default_user', name: 'Default User', specialty: 'Human-in-the-Loop', profileImageUrl: '/operators/default_user.png' },
-    { id: 'system_admin', name: 'System Admin', specialty: 'System Oversight', profileImageUrl: '/operators/system_admin.png' },
+export const ELEVENLABS_VOICES: readonly VoiceOption[] = [
+    { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel' },
+    { id: '29vD33N1CtxCmqQRPOHJ', name: 'Drew' },
+    { id: '2EiwWnXFnvU5JabPnv8n', name: 'Clyde' },
+    { id: '5Q0t7uMcjvnagumLfvZi', name: 'Paul' },
+    { id: 'ADInuT4j232x6Qy20w5D', name: 'Domi' },
 ];
