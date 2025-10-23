@@ -21,6 +21,7 @@ import SettingsPanel from './components/SettingsPanel';
 import ChatHistoryPanel from './components/ChatHistoryPanel';
 import SaveToRagModal from './components/SaveToRagModal';
 import VideoGenerationPanel from './components/VideoGenerationPanel';
+import ConversationalUI from './components/ConversationalUI';
 import { ChatProvider, useChat } from './contexts/ChatContext';
 import { AgentsProvider, useAgents } from './contexts/AgentsContext';
 import { ToolProvider, useTools } from './contexts/ToolContext';
@@ -32,8 +33,8 @@ const AppContent: React.FC = () => {
     setRightPanelContent, lightboxIndex, handleCloseLightbox, handlePrevImage, handleNextImage,
     galleryImages, handleOpenLightbox, handleDragStart, perchanceFormData, setPerchanceFormData,
     handleOpenPerchanceWithParams, sunoFormData, setSunoFormData, handleOpenSunoWithParams,
-    handleAnalyzeAudio, handleGenerateSunoLyrics, apiKey, handleApiKeySave,
-    handleFetchVoiceData, isGalleryLoading, serverStatus
+    handleAnalyzeAudio, handleGenerateSunoLyrics,
+    handleFetchVoiceData, isGalleryLoading, serverStatus, isConversationModeActive
   } = useTools();
   const { isVoiceModalOpen, selectedAgentForVoice } = useAgents();
 
@@ -126,9 +127,9 @@ const AppContent: React.FC = () => {
               </div>
             )}
           </main>
-          {showMessageInput && (
+          {(showMessageInput || isConversationModeActive) && (
             <footer className="p-4 md:p-6 border-t border-accent bg-secondary">
-              <MessageInput />
+              {isConversationModeActive ? <ConversationalUI /> : <MessageInput />}
             </footer>
           )}
         </div>
@@ -170,8 +171,6 @@ const AppContent: React.FC = () => {
             {rightPanelContent === 'HISTORY' && <ChatHistoryPanel />}
             {rightPanelContent === 'SETTINGS' && (
               <SettingsPanel
-                apiKey={apiKey}
-                onApiKeySave={handleApiKeySave}
                 onClose={() => setRightPanelContent(null)}
               />
             )}

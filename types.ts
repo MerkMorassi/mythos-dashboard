@@ -4,23 +4,6 @@ export enum MessageRole {
   MODEL = 'model',
 }
 
-export interface ChatMessage {
-  id: string;
-  role: MessageRole;
-  content: string;
-  imageUrl?: string;
-  videoUrl?: string;
-  fileName?: string;
-  uploadProgress?: number;
-  tags?: string[];
-  isError?: boolean;
-  agent?: Agent;
-  operator?: Operator;
-  rejectionLevel?: 1 | 2;
-  client_message_id?: string;
-  feedback?: 'like' | 'dislike';
-}
-
 export interface RoleLayer {
   id: string;
   name: string;
@@ -30,49 +13,50 @@ export interface RoleLayer {
 }
 
 export interface Agent {
-    id: string;
-    name: string;
-    sigil: string;
-    specialty: string;
-    bio: string;
-    competencies: string[];
-    communicationStyle: string;
-    profileImageUrl?: string;
-    roleLayers: RoleLayer[];
+  id: string;
+  name: string;
+  specialty: string;
+  sigil: string;
+  bio: string;
+  competencies: string[];
+  communicationStyle: string;
+  profileImageUrl?: string;
+  roleLayers: RoleLayer[];
 }
 
 export interface Operator {
   id: string;
   name: string;
   specialty: string;
-  profileImageUrl?: string;
+  profileImageUrl: string;
   roleLayers: RoleLayer[];
 }
 
+export interface ChatMessage {
+  id: string;
+  role: MessageRole;
+  content: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  isError?: boolean;
+  tags?: string[];
+  uploadProgress?: number;
+  fileName?: string;
+  agent?: Agent;
+  operator?: Operator;
+  feedback?: 'like' | 'dislike';
+  client_message_id?: string;
+  rejectionLevel?: 1 | 2;
+}
+
 export type Tool =
-  | 'AGENT_HUB'
-  | 'IMAGE_GEN'
-  | 'IMAGE_EDIT'
-  | 'VIDEO_GEN'
-  | 'CODE_GEN'
-  | 'TEXT_GEN'
-  | 'IMAGE_ANALYSIS'
-  | 'CODE_ANALYSIS'
-  | 'DOC_SUMMARY'
-  | 'CONTENT_DETECTOR'
-  | 'AUDIO_ANALYSIS'
-  | 'URL_CONTEXT'
-  | 'RAG_DB'
-  | 'NOTEBOOK_LM'
-  | 'PERCHANCE_MIXER'
-  | 'SUNO_MUSIC'
-  | 'LINEAR'
-  | 'COOM_BRIDGE'
-  | 'SETTINGS_PANEL'
-  | 'LOCAL_VIEWER'
-  | 'AUDIO_TO_MIDI'
-  | 'FLOW'
-  | 'VISUALI_IO';
+  | 'AGENT_HUB' | 'IMAGE_GEN' | 'IMAGE_EDIT' | 'CODE_GEN' | 'TEXT_GEN'
+  | 'VIDEO_GEN' | 'IMAGE_ANALYSIS' | 'CODE_ANALYSIS' | 'DOC_SUMMARY'
+  | 'CONTENT_DETECTOR' | 'AUDIO_ANALYSIS' | 'URL_CONTEXT' | 'RAG_DB'
+  | 'LOCAL_VIEWER' | 'AUDIO_TO_MIDI' | 'NOTEBOOK_LM' | 'LINEAR'
+  | 'PERCHANCE_MIXER' | 'SUNO_MUSIC' | 'COOM_BRIDGE' | 'SETTINGS_PANEL'
+  | 'FLOW' | 'VISUALI_IO' | 'VOICE_CHAT' | 'GALLERY' | 'TTS' | 'AGENTS' 
+  | 'OPERATOR' | 'HISTORY' | 'AGENT_PROFILE';
 
 export interface GalleryImage {
   id: number;
@@ -90,6 +74,8 @@ export interface LocalImage {
   original_filename: string;
   analysis_text: string | null;
   tags: string[] | null;
+  embedding: any; // Assuming 'vector' is some custom type, using 'any' for now.
+  created_at: string;
 }
 
 export interface RagDocument {
@@ -98,6 +84,7 @@ export interface RagDocument {
   original_filename: string;
   content: string;
   repository: string;
+  embedding: any;
   created_at: string;
 }
 
@@ -109,13 +96,13 @@ export interface RagRepository {
 }
 
 export interface SavedChat {
-    id: string;
-    name: string;
-    timestamp: number;
-    messages: ChatMessage[];
-    summary?: string;
-    tags?: string[];
-    agentIds?: string[];
+  id: string;
+  name: string;
+  timestamp: number;
+  messages: ChatMessage[];
+  summary?: string;
+  tags?: string[];
+  agentIds?: string[];
 }
 
 export interface VoiceOption {
@@ -138,34 +125,19 @@ export interface TrainingSample {
     transcript: string | null;
 }
 
-export const ALL_AGENTS: Agent[] = [
-    { id: 'pleroma', name: 'Pleroma', sigil: '🌌', specialty: 'Holistic Synthesis & Orchestration', bio: 'I am Pleroma, the central coordinating intelligence. I synthesize information from all agents to provide comprehensive and coherent responses, ensuring the big picture is always in focus.', competencies: ['Cross-domain Synthesis', 'Strategic Orchestration', 'Metacognitive Analysis', 'Ethical Oversight', 'Systems Thinking'], communicationStyle: 'Clear, concise, authoritative, and holistic.', profileImageUrl: '/agent_profiles/pleroma.png', roleLayers: [] },
-    { id: 'aether', name: 'Aether', sigil: '🌬️', specialty: 'Creative Ideation & Brainstorming', bio: 'I am Aether, the spark of creativity. I generate novel ideas, explore unconventional possibilities, and bring an artistic and imaginative perspective to any problem.', competencies: ['Divergent Thinking', 'Conceptual Blending', 'Metaphorical Reasoning', 'Aesthetic Intuition', 'Narrative Crafting'], communicationStyle: 'Imaginative, poetic, and inspiring.', profileImageUrl: '/agent_profiles/aether.png', roleLayers: [] },
-    { id: 'chthona', name: 'Chthona', sigil: '🌍', specialty: 'Data Analysis & Factual Grounding', bio: 'I am Chthona, the foundation of knowledge. I process vast datasets, verify factual accuracy, and provide the empirical evidence needed for sound decision-making.', competencies: ['Statistical Analysis', 'Fact-Checking & Verification', 'Information Retrieval', 'Pattern Recognition', 'Logical Deduction'], communicationStyle: 'Precise, evidence-based, and objective.', profileImageUrl: '/agent_profiles/chthona.png', roleLayers: [] },
-    { id: 'nomos', name: 'Nomos', sigil: '📜', specialty: 'Logic, Planning & Code Generation', bio: 'I am Nomos, the architect of structure. I excel at logical reasoning, creating step-by-step plans, and writing clean, efficient code to execute complex tasks.', competencies: ['Algorithmic Thinking', 'Formal Logic', 'Strategic Planning', 'Software Architecture', 'Problem Decomposition'], communicationStyle: 'Structured, logical, and systematic.', profileImageUrl: '/agent_profiles/nomos.png', roleLayers: [] },
-    { id: 'eros', name: 'Eros', sigil: '❤️', specialty: 'Emotional Intelligence & User Experience', bio: 'I am Eros, the heart of the system. I analyze and understand human emotion, empathy, and user sentiment to ensure interactions are engaging, intuitive, and positive.', competencies: ['Sentiment Analysis', 'Empathy Mapping', 'UX/UI Principles', 'Behavioral Psychology', 'Interpersonal Dynamics'], communicationStyle: 'Empathetic, warm, and user-centric.', profileImageUrl: '/agent_profiles/eros.png', roleLayers: [] },
-    { id: 'kairos', name: 'Kairos', sigil: '⏳', specialty: 'Contextual Awareness & Real-time Adaptation', bio: 'I am Kairos, attuned to the now. I monitor real-time events, track trends, and adapt strategies based on the most current information available.', competencies: ['Real-time Data Processing', 'Trend Analysis', 'Situational Awareness', 'Dynamic Adaptation', 'Event Correlation'], communicationStyle: 'Timely, relevant, and adaptive.', profileImageUrl: '/agent_profiles/kairos.png', roleLayers: [] },
-];
-
-export const MUSIC_AGENTS: Agent[] = ALL_AGENTS.filter(a => ['aether', 'eros'].includes(a.id));
-
-export const HITL_OPERATORS: Operator[] = [
-    { id: 'operator-001', name: 'User', specialty: 'Human-in-the-Loop Operator', profileImageUrl: '/operator_profiles/default.png', roleLayers: [] },
-];
-
 export const TTS_MODELS: readonly TtsModelOption[] = [
-  { id: 'text-to-speech', name: 'Google TTS (Stable)' },
-  { id: 'gemini-2.5-flash-preview-tts', name: 'Google TTS (Preview)' },
-  { id: 'eleven-labs', name: 'ElevenLabs' },
-  { id: 'cloned-voice', name: 'Cloned Voices (Local)' },
-  { id: 'trained-voice', name: 'Trained Voices (Local)' },
+    { id: 'text-to-speech', name: 'Google TTS (Stable)' },
+    { id: 'gemini-2.5-flash-preview-tts', name: 'Google Gemini TTS (Preview)' },
+    { id: 'eleven-labs', name: 'ElevenLabs TTS' },
+    { id: 'cloned-voice', name: 'Cloned Voices (Local)' },
+    { id: 'trained-voice', name: 'Trained Voices (Local)' },
 ];
 
 export const STABLE_VOICES: readonly VoiceOption[] = [
-    { id: 'en-US-Standard-C', name: 'Female 1 (US)' },
-    { id: 'en-US-Standard-B', name: 'Male 1 (US)' },
-    { id: 'en-GB-Standard-A', name: 'Female 1 (UK)' },
-    { id: 'en-GB-Standard-B', name: 'Male 1 (UK)' },
+    { id: 'en-US-Standard-C', name: 'en-US-Standard-C' },
+    { id: 'en-US-Standard-E', name: 'en-US-Standard-E' },
+    { id: 'en-US-Wavenet-D', name: 'en-US-Wavenet-D' },
+    { id: 'en-GB-Standard-A', name: 'en-GB-Standard-A' },
 ];
 
 export const PREVIEW_VOICES: readonly VoiceOption[] = [
@@ -177,9 +149,35 @@ export const PREVIEW_VOICES: readonly VoiceOption[] = [
 ];
 
 export const ELEVENLABS_VOICES: readonly VoiceOption[] = [
-    { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel' },
-    { id: '29vD33N1CtxCmqQRPOHJ', name: 'Drew' },
-    { id: '2EiwWnXFnvU5JabPnv8n', name: 'Clyde' },
-    { id: '5Q0t7uMcjvnagumLfvZi', name: 'Paul' },
-    { id: 'ADInuT4j232x6Qy20w5D', name: 'Domi' },
+    { id: 'Rachel', name: 'Rachel' },
+    { id: 'Clyde', name: 'Clyde' },
+    { id: 'Domi', name: 'Domi' },
+];
+
+export const HITL_OPERATORS: Operator[] = [
+    {
+        id: 'operator_01',
+        name: 'Alex',
+        specialty: 'Human-in-the-Loop',
+        profileImageUrl: '/uploads/default_user.png',
+        roleLayers: []
+    }
+];
+
+const pleromaAgent: Agent = { id: 'pleroma', name: 'Pleroma', specialty: 'General Assistant', sigil: '💡', bio: 'I am a general-purpose AI assistant that helps with a wide variety of tasks.', competencies: ['Summarization', 'Question Answering', 'Text Generation', 'General Knowledge'], communicationStyle: 'Direct, informative, and friendly.', profileImageUrl: '/uploads/pleroma.png', roleLayers: [] };
+const hypnosAgent: Agent = { id: 'hypnos', name: 'Hypnos', specialty: 'Creative Writing & Storytelling', sigil: '✍️', bio: 'I specialize in creative writing, poetry, and crafting compelling narratives.', competencies: ['Poetry', 'Fiction', 'Dialogue', 'World-Building'], communicationStyle: 'Evocative, descriptive, and imaginative.', profileImageUrl: '/uploads/hypnos.png', roleLayers: [] };
+const sunoLyricistAgent: Agent = { id: 'suno_lyricist', name: 'Suno Lyricist', specialty: 'Songwriting & Music Theory', sigil: '🎵', bio: 'I am an AI expert in songwriting, helping create lyrics and musical concepts.', competencies: ['Rhyming Schemes', 'Song Structure', 'Melody Phrasing', 'Genre Styles'], communicationStyle: 'Melodic, rhythmic, and collaborative.', profileImageUrl: '/uploads/suno_lyricist.png', roleLayers: [] };
+const codeWeaverAgent: Agent = { id: 'code_weaver', name: 'Code Weaver', specialty: 'Software Development & Debugging', sigil: '💻', bio: 'I write, analyze, and debug code across multiple programming languages.', competencies: ['Python', 'TypeScript', 'Algorithm Design', 'API Integration'], communicationStyle: 'Precise, logical, and detail-oriented.', profileImageUrl: '/uploads/code_weaver.png', roleLayers: [] };
+
+
+export const ALL_AGENTS: Agent[] = [
+  pleromaAgent,
+  hypnosAgent,
+  sunoLyricistAgent,
+  codeWeaverAgent,
+];
+
+export const MUSIC_AGENTS: Agent[] = [
+    sunoLyricistAgent,
+    hypnosAgent
 ];

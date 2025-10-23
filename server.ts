@@ -1,4 +1,7 @@
 
+
+
+// FIX: Aliased express Request and Response types to avoid conflicts with global types.
 import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
 import cors from 'cors';
 import multer from 'multer';
@@ -93,6 +96,31 @@ const initDb = async () => {
       INSERT INTO rag_repositories (name, description) 
       VALUES ('common', 'A shared knowledge base for all agents.') 
       ON CONFLICT (name) DO NOTHING;
+    `);
+
+    // Schema for storing agent and operator customizations
+    await client.query(`
+        CREATE TABLE IF NOT EXISTS operative_customizations (
+            id VARCHAR(255) PRIMARY KEY,
+            name TEXT,
+            specialty TEXT,
+            bio TEXT,
+            communication_style TEXT,
+            profile_image BYTEA,
+            profile_image_mimetype VARCHAR(50)
+        );
+    `);
+
+    // Schema for storing role layers linked to an operative
+    await client.query(`
+        CREATE TABLE IF NOT EXISTS role_layers (
+            id VARCHAR(255) PRIMARY KEY,
+            owner_id VARCHAR(255) NOT NULL,
+            name TEXT,
+            specialty TEXT,
+            bio TEXT,
+            communication_style TEXT
+        );
     `);
 
     console.log('Database tables are ready.');

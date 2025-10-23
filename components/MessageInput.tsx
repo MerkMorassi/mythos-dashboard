@@ -12,6 +12,7 @@ import TrashIcon from './icons/TrashIcon';
 import ChevronRightIcon from './icons/ChevronRightIcon';
 import { useChat } from '../contexts/ChatContext';
 import { useTools } from '../contexts/ToolContext';
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
 const ACCEPTED_IMAGE_TYPES = 'image/jpeg, image/png';
@@ -35,17 +36,22 @@ const MessageInput: React.FC = () => {
   const [docFile, setDocFile] = useState<File | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [isTipsOpen, setIsTipsOpen] = useState(false);
+  
+  const { isListening, transcript, startListening, stopListening, isSupported, error: speechError } = useSpeechRecognition();
   
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const imageFileInputRef = useRef<HTMLInputElement | null>(null);
   const docFileInputRef = useRef<HTMLInputElement | null>(null);
   const audioFileInputRef = useRef<HTMLInputElement | null>(null);
-  // FIX: Changed SpeechRecognition to any to handle browser-specific implementations and avoid type errors.
-  const speechRecognitionRef = useRef<any | null>(null);
+
+  useEffect(() => {
+    if (isListening) {
+      setInput(transcript);
+    }
+  }, [transcript, isListening, setInput]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -59,42 +65,6 @@ const MessageInput: React.FC = () => {
   }, [input]);
 
   useEffect(() => {
-    // FIX: Cast window to 'any' to access non-standard SpeechRecognition APIs without TypeScript errors.
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-
-      recognition.onresult = (event: any) => {
-        let transcript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          transcript += event.results[i][0].transcript;
-        }
-        setInput(transcript);
-      };
-      
-      recognition.onerror = (event: any) => {
-        console.error("Speech recognition error:", event.error);
-        setIsRecording(false);
-      }
-      
-      recognition.onend = () => {
-        setIsRecording(false);
-      }
-
-      speechRecognitionRef.current = recognition;
-    } else {
-      console.warn("Speech Recognition not supported by this browser.");
-    }
-    
-    return () => {
-      speechRecognitionRef.current?.abort();
-    };
-  }, [setInput]);
-
-  useEffect(() => {
     return () => {
       if (imagePreviewUrl) {
         URL.revokeObjectURL(imagePreviewUrl);
@@ -103,16 +73,13 @@ const MessageInput: React.FC = () => {
   }, [imagePreviewUrl]);
   
   const handleToggleRecording = useCallback(() => {
-    if (!speechRecognitionRef.current) return;
-    
-    if (isRecording) {
-      speechRecognitionRef.current.stop();
+    if (isListening) {
+      stopListening();
     } else {
       setInput(''); // Clear input before starting
-      speechRecognitionRef.current.start();
+      startListening();
     }
-    setIsRecording(!isRecording);
-  }, [isRecording, setInput]);
+  }, [isListening, setInput, startListening, stopListening]);
 
   const removeImageFile = () => {
     setImageFile(null);
@@ -272,8 +239,6 @@ const MessageInput: React.FC = () => {
       handleSend();
     }
   };
-
-  const isSpeechSupported = !!(typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition));
   
   const handleDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -407,6 +372,16 @@ const MessageInput: React.FC = () => {
             </button>
         </div>
       )}
+      {speechError && (
+        <div className="flex items-center justify-between text-red-400 text-sm mb-2 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+            <div className="flex items-center gap-2">
+                <AlertTriangleIcon />
+                <span className="font-semibold">
+                    {speechError === 'not-allowed' ? 'Microphone access denied. Please enable it in your browser settings.' : `Speech Error: ${speechError}`}
+                </span>
+            </div>
+        </div>
+      )}
       {(imagePreviewUrl && imageFile) && (
         <div className="relative inline-block mb-2 p-2 rounded-lg bg-[#202020] border border-accent">
           <img src={imagePreviewUrl} alt="Preview" className="max-h-32 rounded-lg" />
@@ -509,14 +484,14 @@ const MessageInput: React.FC = () => {
                 Use Last Image
               </button>
             )}
-            {isSpeechSupported && (
+            {isSupported && (
                 <button
                     onClick={handleToggleRecording}
                     disabled={isLoading}
-                    className={`p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 ${isRecording ? 'text-red-400 animate-pulse' : ''}`}
-                    aria-label={isRecording ? 'Stop recording' : 'Start recording'}
+                    className={`p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 ${isListening ? 'text-red-400 animate-pulse' : ''}`}
+                    aria-label={isListening ? 'Stop recording' : 'Start recording'}
                     >
-                    {isRecording ? <StopCircleIcon /> : <MicrophoneIcon />}
+                    {isListening ? <StopCircleIcon /> : <MicrophoneIcon />}
                 </button>
               )}
             <button

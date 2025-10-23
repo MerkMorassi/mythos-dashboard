@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import type { Part } from '@google/genai';
-import type { GalleryImage, LocalImage, Tool, RagDocument, RagRepository, SavedChat } from '../types';
+// FIX: Removed unused 'Tool' import. The circular dependency is resolved by fixing types.ts
+import type { GalleryImage, LocalImage, RagDocument, RagRepository, SavedChat } from '../types';
 
 const API_BASE_URL = '/api';
 
@@ -41,15 +42,6 @@ export async function synthesizeSpeech(text: string, voiceId: string, ttsModelId
 
 // --- Client-Side Voice Data Preparation ---
 
-const getApiKey = (): string | null => {
-    try {
-        return localStorage.getItem('gemini-api-key');
-    } catch (e) {
-        console.error("Could not access localStorage:", e);
-        return null;
-    }
-};
-
 const fileToGenerativePart = async (file: File): Promise<Part> => {
     const base64EncodedData = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -67,16 +59,14 @@ const fileToGenerativePart = async (file: File): Promise<Part> => {
 };
 
 export async function transcribeAudioSample(file: File): Promise<string> {
-    const apiKey = getApiKey();
-    
-    if (!apiKey) {
-        const errorMessage = "Gemini API key not found. Please set it in the Settings panel.";
+    if (!process.env.API_KEY) {
+        const errorMessage = "Google Gemini API key is not configured.";
         console.error(errorMessage);
         return Promise.reject(new Error(errorMessage));
     }
     
     try {
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const audioPart = await fileToGenerativePart(file);
         const textPart = { text: "Transcribe this audio file accurately. The output should be only the transcribed text." };
         

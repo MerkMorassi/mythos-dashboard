@@ -1,5 +1,3 @@
-
-
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import type { ChatMessage as Message, Tool, Agent, SavedChat } from '../types';
 import { MessageRole, ALL_AGENTS } from '../types';
@@ -8,6 +6,7 @@ import type { Part } from '@google/genai';
 import { synthesizeSpeech, submitFeedback, saveChatToRag } from '../services/geminiService';
 import { getClonedVoiceBlob, getFirstTrainingSampleBlob } from '../services/dbService';
 import { markdownToPlainText } from '../utils/textUtils';
+import { decodeBase64, decodePcm } from '../utils/audioUtils';
 import { useTools } from './ToolContext';
 import { useAgents } from './AgentsContext';
 
@@ -58,7 +57,7 @@ interface ChatContextState {
 const ChatContext = createContext<ChatContextState | undefined>(undefined);
 
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { activeTool, selectedTtsModel, selectedVoice, activeOperator, handleFetchGallery, isServerReady, apiKey } = useTools();
+  const { activeTool, selectedTtsModel, selectedVoice, activeOperator, handleFetchGallery, isServerReady, isConversationModeActive } = useTools();
   const { activeAgents } = useAgents();
 
   const [messages, setMessages] = useState<Message[]>([initialMessage]);
@@ -79,8 +78,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isSaveToRagModalOpen, setIsSaveToRagModalOpen] = useState(false);
   const [chatToSaveToRag, setChatToSaveToRag] = useState<SavedChat | null>(null);
 
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioSourceRef = useRef<AudioBufferSourceNode | HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const lastSpokenMessageIdRef = useRef<string | null>(null);
   
   useEffect(() => {
     try {
@@ -109,97 +110,112 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
   };
 
+  const stopPlayback = () => {
+    if (audioSourceRef.current) {
+      if (audioSourceRef.current instanceof AudioBufferSourceNode) {
+        audioSourceRef.current.stop();
+      } else if (audioSourceRef.current instanceof HTMLAudioElement) {
+        audioSourceRef.current.pause();
+      }
+      audioSourceRef.current = null;
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    setSpeakingMessageId(null);
+  };
+
   const handleSpeak = useCallback(async (message: Message) => {
     if (speakingMessageId === message.id) {
-        if (audioRef.current) {
-            audioRef.current.pause();
-        }
-        setSpeakingMessageId(null);
+        stopPlayback();
         return;
     }
-
-    if (audioRef.current) {
-        audioRef.current.pause();
-    }
-
+    stopPlayback();
     setSpeakingMessageId(message.id);
+
     try {
         const plainText = markdownToPlainText(message.content);
+        const isGoogleModel = selectedTtsModel === 'text-to-speech' || selectedTtsModel === 'gemini-2.5-flash-preview-tts';
 
-        if (selectedTtsModel === 'cloned-voice') {
-            if (!selectedVoice) throw new Error("No cloned voice selected.");
-            const audioBlob = await getClonedVoiceBlob(selectedVoice);
-            if (!audioBlob) {
-                throw new Error(`Cloned voice with ID ${selectedVoice} not found in local storage.`);
-            }
+        if (isGoogleModel) {
+            if (!process.env.API_KEY) throw new Error("Google Gemini API key not configured.");
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const response = await ai.models.generateContent({
+              model: "gemini-2.5-flash-preview-tts",
+              contents: [{ parts: [{ text: plainText }] }],
+              config: {
+                responseModalities: [Modality.AUDIO],
+                speechConfig: {
+                    voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } },
+                },
+              },
+            });
+            const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+            if (!base64Audio) throw new Error("No audio data from Gemini TTS.");
+
+            const audioBytes = decodeBase64(base64Audio);
+            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+            audioContextRef.current = audioContext;
+            const audioBuffer = await decodePcm(audioBytes, audioContext, 24000, 1);
+            
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            source.onended = stopPlayback;
+            source.start();
+            audioSourceRef.current = source;
+        } else if (selectedTtsModel === 'cloned-voice' || selectedTtsModel === 'trained-voice') {
+            const getBlobFn = selectedTtsModel === 'cloned-voice' ? getClonedVoiceBlob : getFirstTrainingSampleBlob;
+            const voiceId = selectedTtsModel === 'trained-voice' ? (message.agent?.id || selectedVoice) : selectedVoice;
+            if (!voiceId) throw new Error("No voice/agent ID found for local playback.");
+            
+            const audioBlob = await getBlobFn(voiceId);
+            if (!audioBlob) throw new Error(`Local voice data for ID ${voiceId} not found.`);
+            
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
-            audioRef.current = audio;
-            
-            audio.onended = () => {
-              setSpeakingMessageId(null);
-              URL.revokeObjectURL(audioUrl);
-            };
-            await audio.play();
-            return;
-        }
-        
-        if (selectedTtsModel === 'trained-voice') {
-            if (!selectedVoice) throw new Error("No trained voice selected.");
-            const audioBlob = await getFirstTrainingSampleBlob(selectedVoice); // selectedVoice is agent_id
-            if (!audioBlob) {
-                throw new Error(`No training sample found for agent ID ${selectedVoice}.`);
+            audio.onended = () => { stopPlayback(); URL.revokeObjectURL(audioUrl); };
+            audio.play();
+            audioSourceRef.current = audio;
+        } else { // eleven-labs or other server-based
+            if (!isServerReady) {
+                addServerError("Text-to-Speech");
+                stopPlayback();
+                return;
             }
+            const audioContent = await synthesizeSpeech(plainText, selectedVoice, selectedTtsModel);
+            const audioBlob = new Blob([Uint8Array.from(atob(audioContent), c => c.charCodeAt(0))], { type: 'audio/mpeg' });
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
-            audioRef.current = audio;
-            
-            audio.onended = () => {
-              setSpeakingMessageId(null);
-              URL.revokeObjectURL(audioUrl);
-            };
-            await audio.play();
-            return;
-        }
-      
-        if (!isServerReady) {
-            addServerError("Text-to-Speech");
-            setSpeakingMessageId(null);
-            return;
+            audio.onended = () => { stopPlayback(); URL.revokeObjectURL(audioUrl); };
+            audio.play();
+            audioSourceRef.current = audio;
         }
 
-        // Original logic for server-side TTS
-        const audioContent = await synthesizeSpeech(plainText, selectedVoice, selectedTtsModel);
-        const audioBlob = new Blob([Uint8Array.from(atob(audioContent), c => c.charCodeAt(0))], { type: 'audio/mpeg' });
-        const audioUrl = URL.createObjectURL(audioBlob);
-      
-        const audio = new Audio(audioUrl);
-        audioRef.current = audio;
-      
-        audio.onended = () => {
-            setSpeakingMessageId(null);
-            URL.revokeObjectURL(audioUrl);
-        };
-
-        await audio.play();
     } catch (error) {
         console.error('Speech synthesis error:', error);
-        if (error instanceof Error && error.message.includes('interrupted')) {
-            // Do nothing, this is expected if the user stops playback.
-        } else {
-            let errorMessage = "Sorry, I couldn't generate audio. Error: Unknown error";
-            if (error instanceof Error) {
-                errorMessage = `Sorry, I couldn't generate audio. Error: ${error.message}`;
-            }
-            addMessage({
-                role: MessageRole.MODEL,
-                content: errorMessage,
-                isError: true,
-            });
-        }
-        setSpeakingMessageId(null);
+        addMessage({
+            role: MessageRole.MODEL,
+            content: `Sorry, I couldn't generate audio. Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            isError: true,
+        });
+        stopPlayback();
     }
   }, [speakingMessageId, selectedVoice, selectedTtsModel, addMessage, isServerReady]);
+
+  // FIX: Moved handleSpeak definition before this useEffect to resolve use-before-declaration error.
+  useEffect(() => {
+    if (isLoading || !isConversationModeActive) return;
+    
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage && lastMessage.role === MessageRole.MODEL && lastMessage.content && lastMessage.content !== '...' && !lastMessage.isError) {
+        if (lastMessage.id !== lastSpokenMessageIdRef.current) {
+            handleSpeak(lastMessage);
+            lastSpokenMessageIdRef.current = lastMessage.id;
+        }
+    }
+  }, [messages, isLoading, isConversationModeActive, handleSpeak]);
 
   const fileToGenerativePart = async (file: File): Promise<Part> => {
     const base64EncodedData = await new Promise<string>((resolve, reject) => {
@@ -226,8 +242,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       file: File | null = null, 
       userMessageOverrides: Partial<Message> = {}
   ) => {
-    if (!apiKey) {
-      addMessage({ role: MessageRole.MODEL, content: "Google Gemini API key not found. Please set it in the Settings panel.", isError: true });
+    if (!process.env.API_KEY) {
+      addMessage({ role: MessageRole.MODEL, content: "Google Gemini API key is not configured.", isError: true });
       return;
     }
 
@@ -254,7 +270,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setMessages(newMessages);
     setIsLoading(true);
     
-    const ai = new GoogleGenAI({apiKey});
+    const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
     
     try {
         if (tool === 'AGENT_HUB') {
@@ -341,8 +357,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const handleGenerateImage = async (prompt: string) => {
-    if (!apiKey) {
-      addMessage({ role: MessageRole.MODEL, content: "API key is not set.", isError: true });
+    if (!process.env.API_KEY) {
+      addMessage({ role: MessageRole.MODEL, content: "API key is not configured.", isError: true });
       return;
     }
     addMessage({ role: MessageRole.USER, content: prompt, operator: activeOperator });
@@ -353,7 +369,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setMessages(prev => [...prev, { id: responseMessageId, role: MessageRole.MODEL, content: '...', tags: ['image_generation_placeholder'] }]);
     
     try {
-        const ai = new GoogleGenAI({apiKey});
+        const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
         const response = await ai.models.generateImages({
             model: 'imagen-4.0-generate-001',
             prompt,
@@ -383,8 +399,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   const handleEditImage = async (prompt: string, file: File) => {
-    if (!apiKey) {
-      addMessage({ role: MessageRole.MODEL, content: "API key is not set.", isError: true });
+    if (!process.env.API_KEY) {
+      addMessage({ role: MessageRole.MODEL, content: "API key is not configured.", isError: true });
       return;
     }
     const userMessage: Omit<Message, 'id'> = {
@@ -400,7 +416,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setMessages(prev => [...prev, { id: responseMessageId, role: MessageRole.MODEL, content: '...', tags: ['image_generation_placeholder'] }]);
 
     try {
-        const ai = new GoogleGenAI({apiKey});
+        const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
         const imagePart = await fileToGenerativePart(file);
         const textPart = { text: prompt };
 
@@ -428,8 +444,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const handleAnalyzeImage = async (prompt: string, file: File) => {
-    if (!apiKey) {
-      addMessage({ role: MessageRole.MODEL, content: "API key is not set.", isError: true });
+    if (!process.env.API_KEY) {
+      addMessage({ role: MessageRole.MODEL, content: "API key is not configured.", isError: true });
       return;
     }
     const userMessage: Omit<Message, 'id'> = {
@@ -444,7 +460,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setMessages(prev => [...prev, { id: responseMessageId, role: MessageRole.MODEL, content: 'Analyzing image...' }]);
 
     try {
-        const ai = new GoogleGenAI({apiKey});
+        const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
         const imagePart = await fileToGenerativePart(file);
         const fullPrompt = prompt || 'Describe this image in detail. Then, on a new line, add "Tags:" followed by a short, comma-separated list of relevant keywords.';
         
@@ -473,8 +489,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const handleGenerateVideo = async (prompt: string, image?: File | string | null) => {
-    if (!apiKey) {
-        addMessage({ role: MessageRole.MODEL, content: "API key is not set.", isError: true });
+    if (!process.env.API_KEY) {
+        addMessage({ role: MessageRole.MODEL, content: "API key is not configured.", isError: true });
         return;
     }
     addMessage({ 
@@ -495,7 +511,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let progressInterval: number;
 
     try {
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         let imagePayload;
         if (image) {
             const base64Data = typeof image === 'string' ? image : await fileToBase64(image);
@@ -538,7 +554,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             throw new Error('Video generation completed, but no download link was found.');
         }
 
-        const videoResponse = await fetch(`${downloadLink}&key=${apiKey}`);
+        const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
         if (!videoResponse.ok) {
             throw new Error(`Failed to download video file. Status: ${videoResponse.status}`);
         }
@@ -658,8 +674,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, [messages]);
 
     const analyzeChatForMetadata = async (chatMessages: Message[]): Promise<{ summary: string; tags: string[] }> => {
-        if (!apiKey) {
-            addMessage({ role: MessageRole.MODEL, content: "Cannot analyze chat because API key is not set. Saving without summary.", isError: true });
+        if (!process.env.API_KEY) {
+            addMessage({ role: MessageRole.MODEL, content: "Cannot analyze chat because API key is not configured. Saving without summary.", isError: true });
             return { summary: '', tags: [] };
         }
         try {
@@ -682,7 +698,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ---
             `;
             
-            const ai = new GoogleGenAI({ apiKey });
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: prompt,
@@ -741,7 +757,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } finally {
             setIsSavingChat(false);
         }
-    }, [currentChatId, messages, savedChats, apiKey, activeAgents]);
+    }, [currentChatId, messages, savedChats, activeAgents]);
     
     const loadChat = useCallback((chatId: string) => {
         const chatToLoad = savedChats.find(c => c.id === chatId);

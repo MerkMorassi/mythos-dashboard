@@ -14,8 +14,6 @@ interface ToolContextState {
   setIsLeftSidebarCollapsed: (collapsed: boolean) => void;
   rightPanelContent: 'GALLERY' | 'PERCHANCE' | 'TTS' | 'AGENTS' | 'SUNO' | 'OPERATOR' | 'SETTINGS' | 'HISTORY' | 'AGENT_PROFILE' | null;
   setRightPanelContent: (panel: ToolContextState['rightPanelContent']) => void;
-  apiKey: string;
-  setApiKey: (key: string) => void;
   selectedTtsModel: TtsModelOption['id'];
   setSelectedTtsModel: (modelId: TtsModelOption['id']) => void;
   availableVoices: readonly VoiceOption[];
@@ -37,7 +35,8 @@ interface ToolContextState {
   handleToggleOperatorPanel: () => void;
   handleToggleSettingsPanel: () => void;
   handleToggleHistoryPanel: () => void;
-  handleApiKeySave: (key: string) => void;
+  handleToggleConversationMode: () => void;
+  isConversationModeActive: boolean;
   galleryImages: GalleryImage[];
   isGalleryLoading: boolean;
   handleFetchGallery: () => Promise<void>;
@@ -74,7 +73,6 @@ export const ToolProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [activeTool, setActiveTool] = useState<Tool>('AGENT_HUB');
   const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
   const [rightPanelContent, setRightPanelContent] = useState<ToolContextState['rightPanelContent']>('AGENTS');
-  const [apiKey, setApiKey] = useState<string>('');
   
   const [selectedTtsModel, setSelectedTtsModel] = useState<TtsModelOption['id']>(TTS_MODELS[0].id);
   const [availableVoices, setAvailableVoices] = useState<readonly VoiceOption[]>(STABLE_VOICES);
@@ -104,6 +102,7 @@ export const ToolProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profileImageUrls, setProfileImageUrls] = useState<Map<string, string>>(new Map());
   const imageUrlsRef = useRef(profileImageUrls);
   imageUrlsRef.current = profileImageUrls;
+  const [isConversationModeActive, setIsConversationModeActive] = useState(false);
 
   const viewingAgentProfile = useMemo(() => {
     return displayedAgents.find(a => a.id === viewingAgentProfileId) || null;
@@ -172,10 +171,6 @@ export const ToolProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
-    try {
-        const savedKey = localStorage.getItem('gemini-api-key');
-        if (savedKey) setApiKey(savedKey);
-    } catch (e) { console.warn("Could not access localStorage to get API key."); }
     const loadClientDbData = async () => {
         try {
             await initDB();
@@ -265,7 +260,12 @@ export const ToolProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const handleToolChange = (tool: Tool) => {
-    if (tool === 'NOTEBOOK_LM') { window.open('https://notebooklm.google.com', '_blank', 'noopener,noreferrer'); }
+    if (isConversationModeActive) setIsConversationModeActive(false);
+
+    if (tool === 'VOICE_CHAT') {
+        handleToggleConversationMode();
+    }
+    else if (tool === 'NOTEBOOK_LM') { window.open('https://notebooklm.google.com', '_blank', 'noopener,noreferrer'); }
     else if (tool === 'PERCHANCE_MIXER') { setRightPanelContent(rightPanelContent === 'PERCHANCE' ? null : 'PERCHANCE'); }
     else if (tool === 'SUNO_MUSIC') { setRightPanelContent(rightPanelContent === 'SUNO' ? null : 'SUNO'); }
     else if (tool === 'LINEAR') { window.open('https://linear.app/mythos-lia/project/mythos-dashboard-3a768abea8fa/overview', '_blank', 'noopener,noreferrer'); }
@@ -275,6 +275,13 @@ export const ToolProvider: React.FC<{ children: React.ReactNode }> = ({ children
     else if (tool === 'VISUALI_IO') { window.open('https://visuali.io/', '_blank', 'noopener,noreferrer'); }
     else { setActiveTool(tool); }
   };
+  
+  const handleToggleConversationMode = () => {
+      setIsConversationModeActive(prev => !prev);
+      if (!isConversationModeActive) {
+          setActiveTool('AGENT_HUB'); // Ensure chat view is active
+      }
+  };
 
   const handleToggleGallery = () => { if (rightPanelContent !== 'GALLERY') handleFetchGallery(); setRightPanelContent(rightPanelContent === 'GALLERY' ? null : 'GALLERY'); };
   const handleToggleTtsPanel = () => { if (rightPanelContent !== 'TTS') handleFetchVoiceData(false); setRightPanelContent(rightPanelContent === 'TTS' ? null : 'TTS'); };
@@ -283,7 +290,6 @@ export const ToolProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const handleToggleSettingsPanel = () => setRightPanelContent(rightPanelContent === 'SETTINGS' ? null : 'SETTINGS');
   const handleToggleHistoryPanel = () => setRightPanelContent(rightPanelContent === 'HISTORY' ? null : 'HISTORY');
 
-  const handleApiKeySave = (key: string) => { try { setApiKey(key); localStorage.setItem('gemini-api-key', key); setRightPanelContent(null); } catch (e) { console.error("Could not save API key:", e); } };
   const handleFetchGallery = useCallback(async () => { if (!isServerReady) return; setIsGalleryLoading(true); try { setGalleryImages(await fetchGallery()); } catch (error) { console.error('Error fetching gallery:', error); } finally { setIsGalleryLoading(false); } }, [isServerReady]);
   const handleOpenLightbox = (index: number) => setLightboxIndex(index);
   const handleCloseLightbox = () => setLightboxIndex(null);
@@ -309,10 +315,11 @@ export const ToolProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const value = {
     activeTool, setActiveTool, isLeftSidebarCollapsed, setIsLeftSidebarCollapsed, rightPanelContent, setRightPanelContent,
-    apiKey, setApiKey, selectedTtsModel, setSelectedTtsModel, availableVoices, selectedVoice, setSelectedVoice,
+    selectedTtsModel, setSelectedTtsModel, availableVoices, selectedVoice, setSelectedVoice,
     ttsModels: TTS_MODELS, handleCloneVoice, allTrainingSamples, handleFetchVoiceData,
     ragRepository, setRagRepository, activeOperator, setActiveOperator, handleUpdateOperator, handleToolChange, handleToggleGallery,
-    handleToggleTtsPanel, handleToggleAgentPanel, handleToggleOperatorPanel, handleToggleSettingsPanel, handleToggleHistoryPanel, handleApiKeySave,
+    handleToggleTtsPanel, handleToggleAgentPanel, handleToggleOperatorPanel, handleToggleSettingsPanel, handleToggleHistoryPanel, handleToggleConversationMode,
+    isConversationModeActive, 
     galleryImages, isGalleryLoading, handleFetchGallery, lightboxIndex, handleOpenLightbox, handleCloseLightbox, handlePrevImage, handleNextImage,
     handleDragStart, perchanceFormData, setPerchanceFormData, handleOpenPerchanceWithParams,
     sunoFormData, setSunoFormData, handleOpenSunoWithParams, handleAnalyzeAudio, handleGenerateSunoLyrics,

@@ -27,6 +27,7 @@ import SettingsIcon from './icons/SettingsIcon';
 import HistoryIcon from './icons/HistoryIcon';
 import FlowIcon from './icons/FlowIcon';
 import SparklesIcon from './icons/SparklesIcon';
+import VoiceChatIcon from './icons/VoiceChatIcon';
 import { useTools } from '../contexts/ToolContext';
 
 const ToolButton: React.FC<{
@@ -58,6 +59,8 @@ const Toolbar: React.FC = () => {
     handleToggleOperatorPanel,
     handleToggleSettingsPanel,
     handleToggleHistoryPanel,
+    handleToggleConversationMode,
+    isConversationModeActive,
     isLeftSidebarCollapsed,
     rightPanelContent
   } = useTools();
@@ -104,7 +107,8 @@ const Toolbar: React.FC = () => {
         <div>
              {!isLeftSidebarCollapsed && <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2 px-3">Agent Chat</h3>}
              <div className="flex flex-col gap-1">
-                <ToolButton label="Agent Hub" isActive={activeTool === 'AGENT_HUB'} onClick={() => handleToolChange('AGENT_HUB')} isCollapsed={isLeftSidebarCollapsed}><AgentHubIcon /></ToolButton>
+                <ToolButton label="Agent Hub" isActive={activeTool === 'AGENT_HUB' && !isConversationModeActive} onClick={() => { handleToolChange('AGENT_HUB'); if(isConversationModeActive) handleToggleConversationMode(); }} isCollapsed={isLeftSidebarCollapsed}><AgentHubIcon /></ToolButton>
+                <ToolButton label="Voice Chat" isActive={isConversationModeActive} onClick={handleToggleConversationMode} isCollapsed={isLeftSidebarCollapsed}><VoiceChatIcon /></ToolButton>
              </div>
         </div>
 
